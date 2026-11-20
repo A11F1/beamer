@@ -1,9 +1,10 @@
-"""The audio experiment's moving parts, shared by the command line (audio_share.py) and the two
-companion apps (audio_menu_mac.py, audio_window_win.py): Beamer's pairing, the companion's own
-preferences, and a sending and a receiving session that start and stop cleanly.
+"""The audio experiment's moving parts, shared by Beamer's Sound menu on each platform
+(mac_app/sound_menu.py, win_app/sound_menu_win.py) and the command line (tools/audio_share.py):
+Beamer's pairing, the experiment's own preferences, and a sending and a receiving session that
+start and stop cleanly.
 
-Nothing here writes Beamer's settings.json; the companions keep their preferences beside it in
-audio.json, so the official Beamer never sees them.
+Nothing here writes Beamer's settings.json; the experiment keeps its preferences beside it in
+audio.json, so a release build of Beamer never sees them. See docs/audio-experiment.md.
 """
 
 import json
@@ -15,11 +16,11 @@ import threading
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from core import audio_stream, peerlist, protocol
+from core.i18n import N_, tr
 
-from core import audio_stream, peerlist, protocol  # noqa: E402
+# The source tree, for running from it; inside a built app the platform modules are top level.
+ROOT = Path(__file__).resolve().parent.parent
 
 SOURCE_LOOPBACK = "loopback"
 SOURCE_TONE = "tone"
@@ -177,11 +178,11 @@ def _mac_app():
 
 
 MUTE_WORDS = {
-    "muted": "Muted {name} while its sound plays on the other machine.",
-    "unmuted": "Unmuted {name}.",
-    "recovered": "Unmuted {name}, left muted by an earlier run.",
-    "gave_up": ("Muting {name} silences the stream too on this device, so it stays unmuted. "
-                "Turn it down on the headset itself instead."),
+    "muted": N_("Muted {name} while its sound plays on the other machine."),
+    "unmuted": N_("Unmuted {name}."),
+    "recovered": N_("Unmuted {name}, left muted by an earlier run."),
+    "gave_up": N_("Muting {name} silences the stream too on this device, so it stays unmuted. "
+                  "Turn it down on the headset itself instead."),
 }
 
 
@@ -227,11 +228,11 @@ class SendSession:
         try:
             endpoint = audio_local_mute.WindowsEndpoint(output)
         except Exception as error:
-            self.notice(f"This PC's own output stays on: its mute could not be reached ({error}).")
+            self.notice(tr("This PC's own output stays on: its mute could not be reached ({error}).").format(error=error))
             return None
         return audio_local_mute.LocalMute(
             endpoint, marker=audio_local_mute.marker_path(),
-            notice=lambda event, name: self.notice(MUTE_WORDS[event].format(name=name)))
+            notice=lambda event, name: self.notice(tr(MUTE_WORDS[event]).format(name=name)))
 
     @property
     def what(self):

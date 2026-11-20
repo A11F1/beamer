@@ -1,4 +1,5 @@
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 from PyInstaller.utils.win32.versioninfo import (
     FixedFileInfo, StringFileInfo, StringStruct, StringTable,
     VarFileInfo, VarStruct, VSVersionInfo,
@@ -35,14 +36,18 @@ analysis = Analysis(
     datas=[(str(source_dir / "Beamer.ico"), "."), (str(source_dir / "assets"), "assets"),
            (str(source_dir.parent / "VERSION"), "."),
            (str(source_dir / "identify_layer_shell.py"), ".")]
-          + [(str(path), "locales") for path in (source_dir.parent / "locales").glob("*.po")],
+          + [(str(path), "locales") for path in (source_dir.parent / "locales").glob("*.po")]
+          # The local audio experiment's Sound menu: soundcard reads its C declarations from files.
+          + collect_data_files("soundcard"),
     # core/effects.py imports its fx_* modules by name, which PyInstaller's analysis cannot see; they are
     # among core_modules. segno is imported inside a try in qr_code.py, so it is named here as well.
-    hiddenimports=["nacl", "_cffi_backend", "segno", "win32com.client", "pythoncom", "pywintypes"] + app_modules + core_modules,
+    hiddenimports=["nacl", "_cffi_backend", "segno", "win32com.client", "pythoncom", "pywintypes"] + app_modules + core_modules
+                  # The audio experiment imports these on its own worker thread, after start-up.
+                  + ["soundcard", "numpy", "comtypes"] + collect_submodules("pycaw"),
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["PIL", "pystray", "tkinter", "numpy", "PySide6.QtQml", "PySide6.QtQuick", "PySide6.Qt3DCore", "PySide6.QtMultimedia"],
+    excludes=["PIL", "pystray", "tkinter", "PySide6.QtQml", "PySide6.QtQuick", "PySide6.Qt3DCore", "PySide6.QtMultimedia"],
     noarchive=False,
 )
 

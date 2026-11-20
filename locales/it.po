@@ -8,6 +8,31 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Beamer-Status: draft, awaiting check\n"
 
+#: core/audio_service.py
+#, python-brace-format
+msgid "Muted {name} while its sound plays on the other machine."
+msgstr "{name} disattivato mentre il suo audio suona sull'altro computer."
+
+#: core/audio_service.py
+#, python-brace-format
+msgid "Unmuted {name}."
+msgstr "{name} riattivato."
+
+#: core/audio_service.py
+#, python-brace-format
+msgid "Unmuted {name}, left muted by an earlier run."
+msgstr "{name} riattivato: era rimasto disattivato da un avvio precedente."
+
+#: core/audio_service.py
+#, python-brace-format
+msgid "Muting {name} silences the stream too on this device, so it stays unmuted. Turn it down on the headset itself instead."
+msgstr "Su questo dispositivo, disattivare {name} silenzia anche lo streaming, quindi resta attivo. Abbassa invece il volume sulle cuffie."
+
+#: core/audio_service.py
+#, python-brace-format
+msgid "This PC's own output stays on: its mute could not be reached ({error})."
+msgstr "L'uscita audio di questo PC resta attiva: non è stato possibile disattivarla ({error})."
+
 #: core/effects.py mac_app/pages.py win_app/pages_win.py
 msgid "Light"
 msgstr "Luce"
@@ -3951,6 +3976,71 @@ msgstr "Bordo"
 msgid "Corner"
 msgstr "Angolo"
 
+#: mac_app/sound_menu.py
+msgid "40 ms, on a wire"
+msgstr "40 ms, via cavo"
+
+#: mac_app/sound_menu.py
+msgid "80 ms, for good Wi-Fi"
+msgstr "80 ms, per un buon Wi-Fi"
+
+#: mac_app/sound_menu.py
+msgid "120 ms, for busy Wi-Fi"
+msgstr "120 ms, per un Wi-Fi congestionato"
+
+#: mac_app/sound_menu.py
+msgid "200 ms, for weak Wi-Fi"
+msgstr "200 ms, per un Wi-Fi debole"
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+msgid "Sound"
+msgstr "Audio"
+
+#: mac_app/sound_menu.py
+msgid "Sound is off"
+msgstr "Audio disattivato"
+
+#: mac_app/sound_menu.py
+msgid "Play other machines' sound here"
+msgstr "Riproduci qui l'audio degli altri computer"
+
+#: mac_app/sound_menu.py
+msgid "Buffer"
+msgstr "Buffer"
+
+#: mac_app/sound_menu.py
+msgid "No paired machine can send sound"
+msgstr "Nessun computer abbinato può inviare audio"
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+msgid "Starting…"
+msgstr "Avvio…"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Listening on {output}"
+msgstr "In ascolto su {output}"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Sound could not start: {error}"
+msgstr "Impossibile avviare l'audio: {error}"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Playing sound from {name}"
+msgstr "Audio in riproduzione da {name}"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "{lost} lost · {late} late · {gaps} gaps"
+msgstr "{lost} persi · {late} in ritardo · {gaps} interruzioni"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Something else is using UDP port {port}."
+msgstr "Un altro programma sta usando la porta UDP {port}."
+
 #: mac_app/wake.py win_app/sender.py
 #, python-brace-format
 msgid "{name} did not wake"
@@ -5469,6 +5559,47 @@ msgstr "{name} ha restituito l'input"
 #, python-brace-format
 msgid "Cannot switch — the desktop did not let Beamer send input to {name}"
 msgstr "Impossibile passare: il desktop non ha consentito a Beamer di inviare input a {name}"
+
+#: win_app/sound_menu_win.py
+msgid "Not sending sound"
+msgstr "Audio non inviato"
+
+#: win_app/sound_menu_win.py
+msgid "Mute this PC while its sound plays elsewhere"
+msgstr "Disattiva l'audio di questo PC mentre suona altrove"
+
+#: win_app/sound_menu_win.py
+msgid "No paired Mac to play on"
+msgstr "Nessun Mac abbinato su cui riprodurre"
+
+#: win_app/sound_menu_win.py
+msgid "That machine is no longer paired with this PC."
+msgstr "Quel computer non è più abbinato a questo PC."
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Waiting for {name}…"
+msgstr "In attesa di {name}…"
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Playing on {name}"
+msgstr "In riproduzione su {name}"
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Turn on Sound in Beamer's menu on {name}."
+msgstr "Su {name}, attiva Audio nel menu di Beamer."
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Play this PC's sound on {name}"
+msgstr "Riproduci l'audio di questo PC su {name}"
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Capturing {output}"
+msgstr "Acquisizione da {output}"
 
 #: win_app/widgets.py
 msgid "Response time: no fresh measurement"

@@ -6,6 +6,31 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: en_GB\n"
 
+#: core/audio_service.py
+#, python-brace-format
+msgid "Muted {name} while its sound plays on the other machine."
+msgstr ""
+
+#: core/audio_service.py
+#, python-brace-format
+msgid "Unmuted {name}."
+msgstr ""
+
+#: core/audio_service.py
+#, python-brace-format
+msgid "Unmuted {name}, left muted by an earlier run."
+msgstr ""
+
+#: core/audio_service.py
+#, python-brace-format
+msgid "Muting {name} silences the stream too on this device, so it stays unmuted. Turn it down on the headset itself instead."
+msgstr ""
+
+#: core/audio_service.py
+#, python-brace-format
+msgid "This PC's own output stays on: its mute could not be reached ({error})."
+msgstr ""
+
 #: core/effects.py mac_app/pages.py win_app/pages_win.py
 msgid "Light"
 msgstr ""
@@ -3891,6 +3916,71 @@ msgstr ""
 msgid "Corner"
 msgstr ""
 
+#: mac_app/sound_menu.py
+msgid "40 ms, on a wire"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "80 ms, for good Wi-Fi"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "120 ms, for busy Wi-Fi"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "200 ms, for weak Wi-Fi"
+msgstr ""
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+msgid "Sound"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "Sound is off"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "Play other machines' sound here"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "Buffer"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "No paired machine can send sound"
+msgstr ""
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+msgid "Starting…"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Listening on {output}"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Sound could not start: {error}"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Playing sound from {name}"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "{lost} lost · {late} late · {gaps} gaps"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Something else is using UDP port {port}."
+msgstr ""
+
 #: mac_app/wake.py win_app/sender.py
 #, python-brace-format
 msgid "{name} did not wake"
@@ -5385,6 +5475,47 @@ msgstr ""
 #: win_app/sender.py
 #, python-brace-format
 msgid "Cannot switch — the desktop did not let Beamer send input to {name}"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+msgid "Not sending sound"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+msgid "Mute this PC while its sound plays elsewhere"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+msgid "No paired Mac to play on"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+msgid "That machine is no longer paired with this PC."
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Waiting for {name}…"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Playing on {name}"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Turn on Sound in Beamer's menu on {name}."
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Play this PC's sound on {name}"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Capturing {output}"
 msgstr ""
 
 #: win_app/widgets.py

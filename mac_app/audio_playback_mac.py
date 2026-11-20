@@ -4,7 +4,8 @@ Through the `sounddevice` package (MIT), whose macOS wheel carries its own PortA
 else is installed. The device callback pulls from the JitterBuffer and never waits on the network;
 Core Audio converts 48 kHz to whatever rate the output runs at.
 
-Not part of the release build: tools/audio_share.py imports it only when asked to receive.
+Part of the local audio experiment only: Beamer's Sound menu (sound_menu.py) and
+tools/audio_share.py import it when asked to receive.
 """
 
 from core import audio_stream

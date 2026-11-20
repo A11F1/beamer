@@ -5190,6 +5190,9 @@ class TrayApp(rumps.App):
             ],
             quit_button=None,
         )
+        self.sound = self._start_sound()
+        if self.sound is not None:
+            self.menu.insert_after(self.receive_item.title, self.sound.item)
         self.status_timer = rumps.Timer(self.refresh_status, 0.4)
         self.startup_timer = rumps.Timer(self.show_on_startup, 0.2)
         # Its own timer, slower than the status tick: the window list is a window-server call,
@@ -5199,6 +5202,16 @@ class TrayApp(rumps.App):
         self.startup_timer.start()
         self.full_screen_timer.start()
         self.update_checker.start()
+
+    def _start_sound(self):
+        """The local audio experiment's Sound menu, or None when its libraries are not installed:
+        Beamer works the same without it."""
+        try:
+            import sound_menu
+            return sound_menu.SoundMenu(self.settings_store.path, self.logger)
+        except Exception:
+            self.logger.exception("audio: the Sound menu is unavailable")
+            return None
 
     def _update_found(self, found, manual=False):
         """On the main thread. The version line in the menu becomes the way to the download."""
@@ -5281,6 +5294,8 @@ class TrayApp(rumps.App):
         self._profile_items()
         self._direction_items()
         self._refresh_tray_state()
+        if self.sound is not None:
+            self.sound.tick()
 
     def _machine_items(self):
         """With more than one machine to send to, Send input to each of them in place of the one
@@ -5713,6 +5728,8 @@ class TrayApp(rumps.App):
 
     def quit_app(self, _sender=None):
         self.status_timer.stop()
+        if self.sound is not None:
+            self.sound.stop()
         self.update_checker.stop()
         self.pairing.stop()
         self.windows_input.stop()

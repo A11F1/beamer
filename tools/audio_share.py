@@ -5,8 +5,8 @@
 
 Both ends use the pairing Beamer already has: the sender finds the receiver's address and the
 pair's token in its own settings.json, and the receiver answers only machines it is paired with.
-Beamer itself keeps running as usual; this uses UDP port 24823 beside it. The companion apps
-(audio_menu_mac.py, audio_window_win.py) do the same with a window. See docs/audio-experiment.md.
+It uses UDP port 24823, the same as the Sound menu in a local build of Beamer, so turn that
+off while this runs. See docs/audio-experiment.md.
 
 `send --source tone` plays a test tone instead of capturing, on any platform, so the path can be
 checked without a Windows machine.
@@ -18,10 +18,10 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import audio_service  # noqa: E402
-from audio_service import PairingError, audio_stream  # noqa: E402
+from core import audio_service, audio_stream  # noqa: E402
+from core.audio_service import PairingError  # noqa: E402
 
 
 def send(args):

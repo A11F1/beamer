@@ -5064,6 +5064,7 @@ class WindowsApplication(QWidget):
         self.drive_action.triggered.connect(lambda on: self._set_every_peer("allow_drive", on))
         self.profile_menu = menu.addMenu(tr("Profile"))
         self._refresh_tray_profiles()
+        self.sound = self._start_sound(menu, self.profile_menu.menuAction())
         menu.addSeparator()
         self.open_action = menu.addAction(tr("Settings…"))
         self.open_action.triggered.connect(lambda _checked=False: self.show_window())
@@ -5078,6 +5079,18 @@ class WindowsApplication(QWidget):
         self.tray.activated.connect(self._on_tray_activated)
         self.tray.setVisible(self.tray_shown())
         self._refresh_tray_state()
+
+    def _start_sound(self, menu, before):
+        """The local audio experiment's Sound menu, on Windows only, or None when its libraries
+        are not installed: Beamer works the same without it."""
+        if sys.platform != "win32":
+            return None
+        try:
+            import sound_menu_win
+            return sound_menu_win.SoundMenu(menu, before, self.config_path, self)
+        except Exception:
+            LOGGER.exception("audio: the Sound menu is unavailable")
+            return None
 
     def _refresh_tray_profiles(self, settings=None) -> None:
         if not hasattr(self, "profile_menu"):
@@ -5529,6 +5542,10 @@ class WindowsApplication(QWidget):
         if self._closing:
             return
         self._closing = True
+        # First, so this PC is unmuted before anything else can stop the way out.
+        sound = getattr(self, "sound", None)
+        if sound is not None:
+            sound.close()
         self.identify_screens.stop()
         self.refresh_timer.stop()
         self.update_checker.stop()

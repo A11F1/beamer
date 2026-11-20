@@ -14,6 +14,11 @@ import wake, widgets
 
 assert ".app/" in bridge.__file__, bridge.__file__
 
+# The local audio experiment's Sound menu. sounddevice opens the bundled PortAudio when imported,
+# so this proves that library is in the bundle and loads under the hardened runtime, on this slice.
+import sound_menu, sounddevice
+assert ".app/" in sounddevice._libname, sounddevice._libname
+
 # The link's X25519 and ChaCha20-Poly1305 and pairing's X25519 are all libsodium, reached through
 # PyNaCl's own cffi extension: a link's handshake, a sealed frame and a whole pairing exchange prove
 # that extension is in the bundle and loads under the hardened runtime.

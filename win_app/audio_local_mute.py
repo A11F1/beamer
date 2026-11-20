@@ -137,15 +137,33 @@ class LocalMute:
                 pass
 
 
+def import_comtypes():
+    """Imports comtypes on this thread, whose COM soundcard has already made multithreaded.
+
+    comtypes initialises COM on the thread that first imports it, single-threaded unless
+    sys.coinit_flags says otherwise, and that fails here with RPC_E_CHANGED_MODE. The flag is set for
+    this one import and put back, because pywin32's pythoncom reads it too: left set, it would make
+    a thread Beamer's own code wants single-threaded multithreaded instead."""
+    if "comtypes" in sys.modules:
+        return
+    missing = object()
+    before = getattr(sys, "coinit_flags", missing)
+    sys.coinit_flags = COINIT_MULTITHREADED
+    try:
+        import comtypes  # noqa: F401
+    finally:
+        if before is missing:
+            del sys.coinit_flags
+        else:
+            sys.coinit_flags = before
+
+
 class WindowsEndpoint:
     """An output device's mute, through pycaw (MIT) and comtypes. Each call initialises COM on its
     own thread, so it may be used from the main thread and from a console-close handler alike."""
 
     def __init__(self, name=None):
-        # soundcard has already made this thread's COM apartment multithreaded, and comtypes
-        # initialises COM when first imported, single-threaded unless told otherwise, which fails
-        # with RPC_E_CHANGED_MODE. So it is told: multithreaded everywhere, as soundcard is.
-        sys.coinit_flags = COINIT_MULTITHREADED
+        import_comtypes()
         from pycaw.pycaw import AudioUtilities
 
         self._com()

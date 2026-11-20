@@ -6,7 +6,8 @@ cffi, needs numpy). Shared-mode WASAPI converts whatever rate and channel count 
 into what is asked for. Loopback hands over nothing while nothing is playing, so the stream simply
 goes quiet then, and the receiver plays silence.
 
-Not part of the release build: tools/audio_share.py imports it only when asked to send.
+Part of the local audio experiment only: Beamer's Sound menu (sound_menu_win.py) and
+tools/audio_share.py import it when asked to send.
 """
 
 import logging

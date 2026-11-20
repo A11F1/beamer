@@ -53,6 +53,8 @@ setup(
         "no_unlock",
         "qr",
         "settings_store",
+        "sound_menu",
+        "audio_playback_mac",
         "theme",
         "tokens",
         "wake",
@@ -77,7 +79,7 @@ setup(
             "excludes": ["tkinter", "_tkinter"],
             # PyNaCl (nacl) ships a compiled _sodium extension reached through cffi; naming both
             # packages keeps their data files and submodules in the bundle.
-            "packages": ["rumps", "cffi", "nacl"],
+            "packages": ["rumps", "cffi", "nacl", "_sounddevice_data"],
             # core/effects.py imports its fx_* modules by name at first use, which py2app's import
             # scan cannot see, so they are named here or the bundle ships without a single effect.
             # Other explicit imports supplement the dependency scan; naming core whole would ship
@@ -87,6 +89,9 @@ setup(
                 "core.crash_log", "core.effects", "core.i18n", "core.locale", "core.idle_pointer", "core.ignored", "core.keytable", "core.link", "core.owner", "core.pairing",
                 "core.peerlist", "core.protocol", "core.receiver", "core.return_edge", "core.settings_sync",
                 "core.updates", "core.wol", "core.identify_screens",
+                # The local audio experiment's Sound menu; sounddevice reaches PortAudio, which
+                # _sounddevice_data carries, through cffi.
+                "core.audio_service", "core.audio_stream", "sounddevice", "_sounddevice",
                 "core.fx_ink", "core.fx_instrument", "core.fx_membrane", "core.fx_sparks", "core.fx_warp",
                 "core.fx_light", "core.fx_material", "core.fx_folio", "core.fx_selvedge",
             ],
