@@ -126,6 +126,10 @@ class SoundMenu:
             self._checked = now
             if self._read_peers() or (self.prefs["receive"] and self.peers and not self.session):
                 self._apply()
+            elif self.session and not self.session.output.active:
+                # The output stopped under it: its device went away, or Core Audio reset.
+                self.logger.info("audio: the output stopped; opening it again")
+                self._apply()
         self.refresh()
 
     @property
