@@ -14,6 +14,7 @@ import time
 
 import rumps
 
+import audio_playback_mac
 from core import audio_service, audio_stream
 from core.audio_service import PairingError
 from core.i18n import N_, tr
@@ -42,6 +43,8 @@ class SoundMenu:
         self._lock = threading.Lock()
         self._playing = None
         self._checked = 0.0
+        # The default output the stream was opened on, to follow it when it changes.
+        self._output_id = None
 
         self.item = rumps.MenuItem(tr("Sound"))
         self.status_item = rumps.MenuItem(tr("Sound is off"))
@@ -80,6 +83,7 @@ class SoundMenu:
             return
         names = {entry["token"]: audio_service.label(entry, self.peers) for entry in self.peers}
         try:
+            self._output_id = audio_playback_mac.default_output_id()
             self.session = audio_service.ReceiveSession(
                 names, port=self.port, latency_ms=self.prefs["latency_ms"], on_change=self._changed)
             self.logger.info("audio: listening on UDP %s for %d machines", self.port, len(names))
@@ -126,11 +130,29 @@ class SoundMenu:
             self._checked = now
             if self._read_peers() or (self.prefs["receive"] and self.peers and not self.session):
                 self._apply()
-            elif self.session and not self.session.output.active:
+            elif self.session and not (self.session.output and self.session.output.active):
                 # The output stopped under it: its device went away, or Core Audio reset.
                 self.logger.info("audio: the output stopped; opening it again")
                 self._apply()
+        self._follow_default_output()
         self.refresh()
+
+    def _follow_default_output(self):
+        """Moves the stream to the Mac's default output when that changes: headphones plugged
+        into the jack, AirPods connecting, a display's speakers chosen in Control Centre."""
+        if not self.session:
+            return
+        current = audio_playback_mac.default_output_id()
+        if current is None or current == self._output_id:
+            return
+        self._output_id = current
+        try:
+            self.session.reopen_output()
+            self.logger.info("audio: now playing on %s", self.session.output_name)
+        except Exception as error:
+            self.logger.warning("audio: could not move to the new output: %s", error)
+            # The next recheck opens it all afresh.
+            self._stop_session()
 
     @property
     def playing(self):

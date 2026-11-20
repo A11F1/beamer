@@ -291,6 +291,8 @@ class ReceiveSession:
         self.receiver = audio_stream.AudioReceiver(peers, self.buffer, port=port, on_change=on_change)
         self.port = self.receiver.port
         import audio_playback_mac
+        self._playback = audio_playback_mac
+        self.device = device
         try:
             self.output = audio_playback_mac.open_output(self.buffer, device)
             self.output_name = audio_playback_mac.output_name(device)
@@ -298,6 +300,20 @@ class ReceiveSession:
             self.receiver.stop()
             raise
         self.receiver.start()
+
+    def reopen_output(self):
+        """Plays on the output as it is now, such as headphones just plugged in, while the
+        receiver keeps running: the sender never notices, and the buffer carries on."""
+        old, self.output = self.output, None
+        try:
+            old.stop()
+            old.close()
+        except Exception:
+            pass
+        # With no stream open, PortAudio can start afresh and see today's default.
+        self._playback.refresh_devices()
+        self.output = self._playback.open_output(self.buffer, self.device)
+        self.output_name = self._playback.output_name(self.device)
 
     @property
     def playing(self):
@@ -309,7 +325,8 @@ class ReceiveSession:
 
     def stop(self):
         try:
-            self.output.stop()
-            self.output.close()
+            if self.output is not None:
+                self.output.stop()
+                self.output.close()
         finally:
             self.receiver.stop()

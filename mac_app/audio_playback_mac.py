@@ -8,6 +8,8 @@ Part of the local audio experiment only: Beamer's Sound menu (sound_menu.py) and
 tools/audio_share.py import it when asked to receive.
 """
 
+import ctypes
+
 from core import audio_stream
 
 
@@ -53,3 +55,32 @@ def refresh_devices():
 def output_name(device=None):
     import sounddevice
     return sounddevice.query_devices(device, kind="output")["name"]
+
+
+class _PropertyAddress(ctypes.Structure):
+    _fields_ = [("selector", ctypes.c_uint32), ("scope", ctypes.c_uint32), ("element", ctypes.c_uint32)]
+
+
+def _code(text):
+    return int.from_bytes(text.encode("ascii"), "big")
+
+
+_core_audio = None
+
+
+def default_output_id():
+    """The Mac's default output device as Core Audio numbers it, or None if it cannot say.
+
+    Read straight from Core Audio, because PortAudio's idea of the default is fixed when it starts:
+    plugging headphones into the jack makes External Headphones the default, and only this sees it."""
+    global _core_audio
+    try:
+        if _core_audio is None:
+            _core_audio = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreAudio.framework/CoreAudio")
+        address = _PropertyAddress(_code("dOut"), _code("glob"), 0)
+        device, size = ctypes.c_uint32(0), ctypes.c_uint32(ctypes.sizeof(ctypes.c_uint32))
+        status = _core_audio.AudioObjectGetPropertyData(
+            1, ctypes.byref(address), 0, None, ctypes.byref(size), ctypes.byref(device))
+    except OSError:
+        return None
+    return device.value if status == 0 else None
