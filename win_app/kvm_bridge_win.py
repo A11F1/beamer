@@ -888,6 +888,7 @@ class WindowsApplication(QWidget):
             "design": self._design_page,
             "keyboard": self._keyboard_page,
             "connection": self._connection_page,
+            "sound": self._sound_page,
         }
         self._page_indexes: dict = {}
         for key, name, purpose in pages_win.PAGES:
@@ -956,6 +957,8 @@ class WindowsApplication(QWidget):
         if key != "crossing":
             self.trigger_recorder.cancel()
             self.crossing_ledger.cancel_recording()
+        if key == "sound":
+            self._refresh_sound_page()
         self._run_previews()
 
     # -- Overview ---------------------------------------------------------------------------
@@ -4741,6 +4744,106 @@ class WindowsApplication(QWidget):
 
     # -- Connection -------------------------------------------------------------------------
 
+    # -- Sound (the local audio experiment) ---------------------------------------------------
+
+    def _sound_page(self, layout, current: Config) -> None:
+        """The tray's Sound menu as a page. Every choice goes through the menu's own, into the same
+        audio.json, and the page shows what the menu shows, so the two never disagree."""
+        self.sound_unavailable = widgets.Module(tr("Sound"))
+        self.sound_unavailable.body.addWidget(widgets.label(
+            tr("Sound is unavailable. Beamer's log says why."), "note", wrap=True))
+        layout.addWidget(self.sound_unavailable)
+
+        out = widgets.Module(tr("This PC on a Mac"))
+        self.sound_status = widgets.label("", "body", wrap=True)
+        self.sound_detail = widgets.label("", "note", wrap=True)
+        self.sound_targets = QVBoxLayout()
+        self.sound_targets.setSpacing(0)
+        self.sound_mute = widgets.Switch(tr("Mute this PC while its sound plays elsewhere"))
+        self.sound_mute.toggled.connect(lambda on: self._choose_sound("mute_local", bool(on)))
+        self.sound_mic_status = widgets.label("", "body", wrap=True)
+        self.sound_mic_detail = widgets.label("", "note", wrap=True)
+        self.sound_mic_targets = QVBoxLayout()
+        self.sound_mic_targets.setSpacing(0)
+        for item in (self.sound_status, self.sound_detail, self.sound_targets, self.sound_mute,
+                     self.sound_mic_status, self.sound_mic_detail, self.sound_mic_targets):
+            (out.body.addLayout if isinstance(item, QVBoxLayout) else out.body.addWidget)(item)
+        out.body.addWidget(widgets.label(tr(
+            "Don't send sound both ways at once: each machine would hear its own come back."), "note", wrap=True))
+        layout.addWidget(out)
+
+        here = widgets.Module(tr("A Mac on this PC"))
+        self.sound_in_status = widgets.label("", "body", wrap=True)
+        self.sound_in_switch = widgets.Switch(tr("Play other machines' sound here"))
+        self.sound_in_switch.toggled.connect(lambda on: self._choose_sound("sound_in", bool(on)))
+        self.sound_mic_in_status = widgets.label("", "body", wrap=True)
+        self.sound_mic_in_switch = widgets.Switch(tr("Use other machines' microphone here"))
+        self.sound_mic_in_switch.toggled.connect(lambda on: self._choose_sound("mic_in", bool(on)))
+        for item in (self.sound_in_status, self.sound_in_switch, self.sound_mic_in_status, self.sound_mic_in_switch):
+            here.body.addWidget(item)
+        here.body.addWidget(widgets.label(tr(
+            "Windows apps hear it when they choose CABLE Output (VB-Audio Virtual Cable) as their microphone."),
+            "note", wrap=True))
+        layout.addWidget(here)
+        self.sound_modules = (out, here)
+        self._sound_shown = None
+        self._sound_switches = {"send_to": {}, "mic_to": {}}
+
+    def _choose_sound(self, name, value) -> None:
+        sound = getattr(self, "sound", None)
+        if sound is not None:
+            sound.choose(name, value)
+        self._refresh_sound_page()
+
+    def _sound_target_switches(self, targets) -> None:
+        """One switch per Mac to send to, rebuilt only when the paired Macs change."""
+        if targets == self._sound_shown:
+            return
+        self._sound_shown = targets
+        for name, box, words in (("send_to", self.sound_targets, tr("Play this PC's sound on {name}")),
+                                 ("mic_to", self.sound_mic_targets, tr("Send this PC's microphone to {name}"))):
+            while box.count():
+                box.takeAt(0).widget().deleteLater()
+            self._sound_switches[name] = {}
+            for key, label in targets:
+                switch = widgets.Switch(words.format(name=label))
+                switch.toggled.connect(lambda on, name=name, key=key: self._choose_sound(name, key if on else ""))
+                box.addWidget(switch)
+                self._sound_switches[name][key] = switch
+            if not targets:
+                box.addWidget(widgets.label(tr("No paired Mac to play on"), "note", wrap=True))
+
+    def _refresh_sound_page(self) -> None:
+        if not hasattr(self, "sound_modules"):
+            return
+        sound = getattr(self, "sound", None)
+        self.sound_unavailable.setVisible(sound is None)
+        for module in self.sound_modules:
+            module.setVisible(sound is not None)
+        if sound is None:
+            return
+        state = sound.snapshot()
+        hide = bool(self._config is not None and self._config.hide_addresses)
+        self._sound_target_switches(state["targets"])
+        for widget, text in ((self.sound_status, state["sound"]), (self.sound_detail, state["sound_detail"]),
+                             (self.sound_mic_status, state["mic"]), (self.sound_mic_detail, state["mic_detail"]),
+                             (self.sound_in_status, state["sound_in"]), (self.sound_mic_in_status, state["mic_in"])):
+            text = pages_win.redact(text, hide)
+            if widget.text() != text:
+                widget.setText(text)
+            widget.setVisible(bool(text))
+        prefs = state["prefs"]
+        checks = [(self.sound_mute, prefs["mute_local"]), (self.sound_in_switch, prefs["sound_in"]),
+                  (self.sound_mic_in_switch, prefs["mic_in"])]
+        for name in ("send_to", "mic_to"):
+            checks += [(switch, key == prefs[name]) for key, switch in self._sound_switches[name].items()]
+        for switch, on in checks:
+            if switch.isChecked() != bool(on):
+                switch.blockSignals(True)
+                switch.setChecked(bool(on))
+                switch.blockSignals(False)
+                switch.update()
+
     def _connection_page(self, layout, current: Config) -> None:
         self._firewall_module(layout)
         privacy = widgets.Module(tr("Addresses"))
@@ -5065,6 +5168,9 @@ class WindowsApplication(QWidget):
         self.profile_menu = menu.addMenu(tr("Profile"))
         self._refresh_tray_profiles()
         self.sound = self._start_sound(menu, self.profile_menu.menuAction())
+        if self.sound is not None:
+            self.sound.changed.connect(self._refresh_sound_page)
+        self._refresh_sound_page()
         menu.addSeparator()
         self.open_action = menu.addAction(tr("Settings…"))
         self.open_action.triggered.connect(lambda _checked=False: self.show_window())

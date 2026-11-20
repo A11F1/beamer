@@ -14,7 +14,7 @@ import pages
 class PagesTest(unittest.TestCase):
     def test_order(self):
         self.assertEqual(
-            pages.KEYS, ("overview", "permissions", "crossing", "keyboard", "design", "connection")
+            pages.KEYS, ("overview", "permissions", "crossing", "keyboard", "design", "sound", "connection")
         )
 
     def test_the_footer_does_not_claim_connection_applies_as_you_type(self):

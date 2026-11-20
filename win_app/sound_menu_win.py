@@ -16,7 +16,7 @@ import logging
 import threading
 import time
 
-from PySide6.QtCore import QObject, QTimer
+from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
@@ -265,6 +265,9 @@ class Receiver:
 class SoundMenu(QObject):
     """The Sound submenu. `before` is the tray menu's action it goes in front of."""
 
+    # After every refresh, so the settings window's Sound page can show the same.
+    changed = Signal()
+
     def __init__(self, tray_menu, before, settings_path, parent=None):
         super().__init__(parent)
         self.settings_path = settings_path
@@ -435,6 +438,34 @@ class SoundMenu(QObject):
         self.mic_detail_action.setVisible(bool(detail))
         self.mic_in_status_action.setText(self.mic_receiver.snapshot())
         self.sound_in_status_action.setText(self.sound_receiver.snapshot())
+        for action, name in ((self.mute_action, "mute_local"), (self.sound_in_action, "sound_in"),
+                             (self.mic_in_action, "mic_in")):
+            action.setChecked(bool(self.prefs[name]))
+        self.changed.emit()
+
+    # The settings window's Sound page --------------------------------------------------------
+
+    def snapshot(self):
+        """Everything the Sound page shows, as the menu shows it."""
+        sound, sound_detail = self.engine.snapshot()
+        mic, mic_detail = self.mic_engine.snapshot()
+        return {
+            "sound": sound, "sound_detail": sound_detail, "mic": mic, "mic_detail": mic_detail,
+            "sound_in": self.sound_receiver.snapshot(), "mic_in": self.mic_receiver.snapshot(),
+            "targets": list(self._shown or ()),
+            "prefs": {name: self.prefs[name] for name in DEFAULTS},
+        }
+
+    def choose(self, name, value):
+        """A choice made on the Sound page: the same as making it in the menu, so the two agree."""
+        if self.prefs[name] == value:
+            return
+        {"send_to": lambda: self._target_chosen(value, True) if value else self._target_chosen("", False),
+         "mic_to": lambda: self._mic_chosen(value, True) if value else self._mic_chosen("", False),
+         "sound_in": lambda: self._sound_in_chosen(value),
+         "mic_in": lambda: self._mic_in_chosen(value),
+         "mute_local": lambda: self._mute_chosen(value)}[name]()
+        self.refresh()
 
     def close(self):
         """Stops sending and unmutes this PC; Beamer calls it on the way out."""

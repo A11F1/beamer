@@ -28,6 +28,9 @@ PAGES = (
     ("design", N_("Design"),
      N_("How crossing looks on this PC: the light as you push toward another machine, and where the "
      "pointer lands.")),
+    ("sound", N_("Sound"),
+     N_("This PC's sound and microphone on a Mac, and a Mac's on this PC. The same choices as Sound in "
+     "the tray menu: a local experiment, kept in audio.json.")),
     ("connection", N_("Connection"),
      N_("This PC's network access, address and listening port; hide addresses in this window and tray.")),
 )

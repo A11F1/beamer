@@ -420,6 +420,25 @@ class SoundMenu:
             return tr("Microphone going to {name}").format(name=sender.name)
         return tr("Waiting for {name}…").format(name=sender.name)
 
+    # The settings window's Sound page -----------------------------------------------------------
+
+    def snapshot(self):
+        """Everything the settings window's Sound page shows, as the menu shows it."""
+        status, detail = self._sound_status()
+        return {
+            "status": status, "detail": detail, "mic_status": self._mic_status(),
+            "send_status": {kind: self._send_status(kind) for kind in (SOUND, MIC)},
+            "receive": bool(self.prefs["receive"]), "mic": bool(self.prefs["mic"]),
+            "latency_ms": self.prefs["latency_ms"],
+            "targets": list(self._send_shown or ()),
+            "send_to": {SOUND: self.prefs["sound_to"], MIC: self.prefs["mic_to"]},
+        }
+
+    def choose(self, **changes):
+        """A choice made on the Sound page: the same as making it in the menu, so the two agree."""
+        if any(self.prefs[name] != value for name, value in changes.items()):
+            self._set(**changes)
+
     @property
     def session(self):
         """The sound receiver, for the tests and the command line's habits."""

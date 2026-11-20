@@ -1209,6 +1209,9 @@ class ControlWindow(AppKit.NSObject):
         # Set by TrayApp: saves one machine's direction switch (token, send= or allow_drive=).
         self.direction_handler = None
         self.left_out_handler = None
+        # Set by TrayApp: the local audio experiment's Sound menu, which the Sound page drives; None
+        # while it is unavailable.
+        self.sound = None
         self.last_capture_attempt = 0.0
         # macOS passes keys only to a process started after Input Monitoring is granted, so a grant
         # made during this run needs a relaunch before the keyboard crosses, however ready the tap looks.
@@ -1361,6 +1364,7 @@ class ControlWindow(AppKit.NSObject):
             "keyboard": self._keyboard_page,
             "connection": self._connection_page,
             "permissions": self._permissions_page,
+            "sound": self._sound_page,
         }
         for key, name, _symbol, purpose in pages.PAGES:
             title = tr(name)
@@ -1519,6 +1523,8 @@ class ControlWindow(AppKit.NSObject):
                 row.jump.cancel()
         if key != "keyboard":
             self.ignored_recorder.cancel()
+        if key == "sound":
+            self._refresh_sound_page()
         self._run_previews()
 
     @objc.python_method
@@ -3281,6 +3287,86 @@ class ControlWindow(AppKit.NSObject):
         self._changed()
 
     @objc.python_method
+    def _sound_page(self, body):
+        """The Sound menu as a page. Every choice goes through the menu's own, into the same
+        audio.json, and the page reads back what the menu shows, so the two never disagree."""
+        import sound_menu
+        unavailable = widgets.Module()
+        unavailable.add(widgets.note(tr("Sound is unavailable. Beamer's log says why.")).view)
+        self.sound_unavailable = unavailable
+        widgets.add(body, unavailable.view)
+
+        here = widgets.Module()
+        here.add(widgets.eyebrow(tr("Other machines' sound here")))
+        self.sound_status = widgets.Label("", theme.TYPE["body"], 600, wrap=True)
+        here.add(self.sound_status.view)
+        self.sound_detail = widgets.note()
+        here.add(self.sound_detail.view)
+        self.sound_receive_box = widgets.Switch(tr("Play other machines' sound here"),
+                                                on_change=lambda on: self._choose_sound(receive=on))
+        here.add(self.sound_receive_box.view)
+        self.sound_buffer_select = widgets.MenuChoice(
+            [(value, tr(text)) for value, text in sound_menu.BUFFERS],
+            on_change=lambda value: self._choose_sound(latency_ms=value))
+        self.sound_buffer_select.popup.setAccessibilityLabel_(tr("Buffer"))
+        here.add(widgets.field_row(tr("Buffer"), self.sound_buffer_select.view)[0])
+        here.add(widgets.eyebrow(tr("Other machines' microphone here")))
+        self.sound_mic_status = widgets.Label("", theme.TYPE["body"], 600, wrap=True)
+        here.add(self.sound_mic_status.view)
+        self.sound_mic_box = widgets.Switch(tr("Use other machines' microphone here"),
+                                            on_change=lambda on: self._choose_sound(mic=on))
+        here.add(self.sound_mic_box.view)
+        here.add(widgets.note(tr("Mac apps hear it when they choose BlackHole 2ch as their microphone.")).view)
+        widgets.add(body, here.view)
+
+        out = widgets.Module()
+        out.add(widgets.eyebrow(tr("This Mac on another machine")))
+        self.sound_send = {}
+        for kind, status_name, caption, setting in (
+                (sound_menu.SOUND, "sound", tr("Send this Mac's sound to"), "sound_to"),
+                (sound_menu.MIC, "mic", tr("Send this Mac's microphone to"), "mic_to")):
+            status = widgets.Label("", theme.TYPE["body"], 600, wrap=True)
+            out.add(status.view)
+            select = widgets.MenuChoice([("", tr("Nowhere"))],
+                                        on_change=lambda value, setting=setting: self._choose_sound(**{setting: value}))
+            select.popup.setAccessibilityLabel_(caption)
+            out.add(widgets.field_row(caption, select.view)[0])
+            self.sound_send[kind] = (status, select)
+        out.add(widgets.note(tr(
+            "Sending this Mac's sound plays it on that machine instead, through BlackHole 16ch. "
+            "Don't send sound both ways at once: each machine would hear its own come back.")).view)
+        widgets.add(body, out.view)
+        self.sound_modules = (here.view, out.view)
+
+    @objc.python_method
+    def _choose_sound(self, **changes):
+        if self.sound is not None:
+            self.sound.choose(**changes)
+        self._refresh_sound_page()
+
+    @objc.python_method
+    def _refresh_sound_page(self):
+        sound = self.sound
+        self.sound_unavailable.view.setHidden_(sound is not None)
+        for view in self.sound_modules:
+            view.setHidden_(sound is None)
+        if sound is None:
+            return
+        state = sound.snapshot()
+        self.sound_status.set(text=state["status"])
+        self.sound_detail.set(text=state["detail"])
+        self.sound_detail.view.setHidden_(not state["detail"])
+        self.sound_receive_box.value = state["receive"]
+        self.sound_buffer_select.value = state["latency_ms"]
+        self.sound_mic_status.set(text=state["mic_status"])
+        self.sound_mic_box.value = state["mic"]
+        hide = self.controller.cfg.hide_addresses
+        for kind, (status, select) in self.sound_send.items():
+            status.set(text=pages.redact(state["send_status"][kind], hide))
+            select.set_choices([("", tr("Nowhere"))] + [(key, pages.redact(name, hide)) for key, name in state["targets"]])
+            select.value = state["send_to"][kind]
+
+    @objc.python_method
     def _connection_page(self, body):
         widgets.add(body, self._connection_module().view)
 
@@ -4883,6 +4969,8 @@ class ControlWindow(AppKit.NSObject):
     @objc.python_method
     def refresh(self):
         controller = self.controller
+        if self.page == "sound":
+            self._refresh_sound_page()
         self._follow_first_peer()
         access = accessibility_granted()
         listening = input_monitoring_granted()
@@ -5191,6 +5279,7 @@ class TrayApp(rumps.App):
             quit_button=None,
         )
         self.sound = self._start_sound()
+        self.control_window.sound = self.sound
         if self.sound is not None:
             self.menu.insert_after(self.receive_item.title, self.sound.item)
         self.status_timer = rumps.Timer(self.refresh_status, 0.4)
@@ -5294,7 +5383,7 @@ class TrayApp(rumps.App):
         self._profile_items()
         self._direction_items()
         self._refresh_tray_state()
-        if self.sound is not None:
+        if getattr(self, "sound", None) is not None:
             self.sound.tick()
 
     def _machine_items(self):

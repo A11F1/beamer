@@ -199,7 +199,7 @@ class ScrollWheelFocusTest(unittest.TestCase):
                 window.show()
                 window.activateWindow()
                 found = set()
-                for key in ("overview", "crossing", "keyboard", "design", "connection"):
+                for key in ("overview", "crossing", "keyboard", "design", "sound", "connection"):
                     window._select_page(key)
                     self.app.processEvents()
                     area = window.stack.currentWidget()

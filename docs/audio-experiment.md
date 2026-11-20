@@ -46,6 +46,10 @@ so expect to throw this away when that lands.
 | Send this Mac's sound to *PC* | Plays what this Mac plays on the PC instead; choose it again to stop |
 | Send this Mac's microphone to *PC* | Sends this Mac's microphone; macOS asks once whether Beamer may use it |
 
+The same choices are on a **Sound** page in Beamer's settings window, on both machines, between
+Design and Connection. The page and the menu are two views of one set of choices: a change in
+either shows in the other.
+
 Every machine paired with the Mac may play there. Both menus remember their choices in
 `audio.json` beside Beamer's `settings.json`, and never change Beamer's own settings. Quitting
 Beamer on the PC stops the sound and unmutes the PC. Anything that goes wrong is in Beamer's log

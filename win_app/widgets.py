@@ -8,7 +8,7 @@ import math
 from shiboken6 import isValid
 
 from PySide6.QtCore import QEvent, QObject, QPointF, QRect, QRectF, QSignalBlocker, QSize, Qt
-from PySide6.QtGui import QAction, QColor, QFont, QFontMetrics, QLinearGradient, QPainter, QPalette, QPen, QWheelEvent
+from PySide6.QtGui import QAction, QColor, QFont, QFontMetrics, QLinearGradient, QPainter, QPalette, QPen, QPolygonF, QWheelEvent
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractSpinBox,
@@ -1550,6 +1550,12 @@ class PageButton(QPushButton):
             painter.drawEllipse(QRectF(2, 2, 14, 14))
             painter.drawLine(9, 2, 9, 16)
             painter.drawLine(2, 9, 16, 9)
+        elif key == "sound":
+            # A speaker and two waves.
+            painter.drawPolygon(QPolygonF([QPointF(1, 7), QPointF(4, 7), QPointF(8, 3), QPointF(8, 15),
+                                           QPointF(4, 11), QPointF(1, 11)]))
+            painter.drawArc(QRectF(7, 5, 6, 8), -60 * 16, 120 * 16)
+            painter.drawArc(QRectF(7, 2, 10, 14), -60 * 16, 120 * 16)
         else:
             painter.drawRoundedRect(QRectF(1, 5, 10, 7), 3, 3)
             painter.drawRoundedRect(QRectF(7, 7, 10, 7), 3, 3)

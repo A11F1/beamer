@@ -28,6 +28,9 @@ PAGES = (
      "and how fast another machine's pointer moves here. The switch key is on the Crossing page.")),
     ("design", N_("Design"), "paintpalette",
      N_("How crossing looks and feels on this Mac: the edge, the corner, the notch and the trackpad.")),
+    ("sound", N_("Sound"), "speaker.wave.2",
+     N_("Another machine's sound and microphone on this Mac, and this Mac's on another machine. The same "
+     "choices as Sound in the menu-bar menu: a local experiment, kept in audio.json.")),
     ("connection", N_("Connection"), "network",
      N_("Local connection details for the first machine you paired. Pair again to change another machine's entry.")),
 )

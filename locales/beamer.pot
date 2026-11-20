@@ -1702,6 +1702,18 @@ msgstr ""
 msgid "Reverse other machines' scrolling"
 msgstr ""
 
+#: mac_app/kvm_bridge_app.py mac_app/sound_menu.py win_app/kvm_bridge_win.py win_app/sound_menu_win.py
+msgid "Play other machines' sound here"
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py mac_app/sound_menu.py
+msgid "Buffer"
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py mac_app/sound_menu.py win_app/kvm_bridge_win.py win_app/sound_menu_win.py
+msgid "Use other machines' microphone here"
+msgstr ""
+
 #: mac_app/kvm_bridge_app.py
 msgid "Delay"
 msgstr ""
@@ -2039,6 +2051,26 @@ msgid "Scroll speed"
 msgstr ""
 
 #: mac_app/kvm_bridge_app.py
+msgid "Other machines' sound here"
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
+msgid "Other machines' microphone here"
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
+msgid "This Mac on another machine"
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
+msgid "Send this Mac's sound to"
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
+msgid "Send this Mac's microphone to"
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
 msgid "Keyboard and pointer"
 msgstr ""
 
@@ -2306,6 +2338,18 @@ msgid "Pointer speed for another machine's mouse or trackpad while it drives thi
 msgstr ""
 
 #: mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
+msgid "Sound is unavailable. Beamer's log says why."
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
+msgid "Mac apps hear it when they choose BlackHole 2ch as their microphone."
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
+msgid "Sending this Mac's sound plays it on that machine instead, through BlackHole 16ch. Don't send sound both ways at once: each machine would hear its own come back."
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
 msgid "Link"
 msgstr ""
 
@@ -2554,6 +2598,10 @@ msgstr ""
 
 #: mac_app/kvm_bridge_app.py
 msgid "Login item status: Requires approval. Move Beamer to Applications and reopen it before allowing it in Login Items."
+msgstr ""
+
+#: mac_app/kvm_bridge_app.py
+msgid "Nowhere"
 msgstr ""
 
 #: mac_app/kvm_bridge_app.py win_app/kvm_bridge_win.py
@@ -3788,6 +3836,14 @@ msgstr ""
 msgid "How crossing looks and feels on this Mac: the edge, the corner, the notch and the trackpad."
 msgstr ""
 
+#: mac_app/pages.py mac_app/sound_menu.py win_app/kvm_bridge_win.py win_app/pages_win.py win_app/sound_menu_win.py
+msgid "Sound"
+msgstr ""
+
+#: mac_app/pages.py
+msgid "Another machine's sound and microphone on this Mac, and this Mac's on another machine. The same choices as Sound in the menu-bar menu: a local experiment, kept in audio.json."
+msgstr ""
+
 #: mac_app/pages.py win_app/pages_win.py
 msgid "Connection"
 msgstr ""
@@ -3933,27 +3989,11 @@ msgid "200 ms, for weak Wi-Fi"
 msgstr ""
 
 #: mac_app/sound_menu.py win_app/sound_menu_win.py
-msgid "Sound"
-msgstr ""
-
-#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Sound is off"
 msgstr ""
 
 #: mac_app/sound_menu.py win_app/sound_menu_win.py
-msgid "Play other machines' sound here"
-msgstr ""
-
-#: mac_app/sound_menu.py
-msgid "Buffer"
-msgstr ""
-
-#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Microphone is off"
-msgstr ""
-
-#: mac_app/sound_menu.py win_app/sound_menu_win.py
-msgid "Use other machines' microphone here"
 msgstr ""
 
 #: mac_app/sound_menu.py win_app/sound_menu_win.py
@@ -4689,6 +4729,18 @@ msgid "For the crossing and the shortcut alike"
 msgstr ""
 
 #: win_app/kvm_bridge_win.py
+msgid "This PC on a Mac"
+msgstr ""
+
+#: win_app/kvm_bridge_win.py win_app/sound_menu_win.py
+msgid "Mute this PC while its sound plays elsewhere"
+msgstr ""
+
+#: win_app/kvm_bridge_win.py
+msgid "A Mac on this PC"
+msgstr ""
+
+#: win_app/kvm_bridge_win.py
 msgid "Addresses"
 msgstr ""
 
@@ -4850,6 +4902,24 @@ msgid "The QR holds this PC's address, so it is not shown while Hide addresses i
 msgstr ""
 
 #: win_app/kvm_bridge_win.py
+msgid "Don't send sound both ways at once: each machine would hear its own come back."
+msgstr ""
+
+#: win_app/kvm_bridge_win.py
+msgid "Windows apps hear it when they choose CABLE Output (VB-Audio Virtual Cable) as their microphone."
+msgstr ""
+
+#: win_app/kvm_bridge_win.py win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Play this PC's sound on {name}"
+msgstr ""
+
+#: win_app/kvm_bridge_win.py win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Send this PC's microphone to {name}"
+msgstr ""
+
+#: win_app/kvm_bridge_win.py
 msgid "Hides every IP and hardware address in this window and the tray."
 msgstr ""
 
@@ -5005,6 +5075,10 @@ msgstr ""
 #: win_app/kvm_bridge_win.py
 #, python-brace-format
 msgid "This PC's address: {address} · port {port}"
+msgstr ""
+
+#: win_app/kvm_bridge_win.py win_app/sound_menu_win.py
+msgid "No paired Mac to play on"
 msgstr ""
 
 #: win_app/kvm_bridge_win.py
@@ -5254,6 +5328,10 @@ msgstr ""
 
 #: win_app/pages_win.py
 msgid "How crossing looks on this PC: the light as you push toward another machine, and where the pointer lands."
+msgstr ""
+
+#: win_app/pages_win.py
+msgid "This PC's sound and microphone on a Mac, and a Mac's on this PC. The same choices as Sound in the tray menu: a local experiment, kept in audio.json."
 msgstr ""
 
 #: win_app/pages_win.py
@@ -5542,24 +5620,6 @@ msgstr ""
 
 #: win_app/sound_menu_win.py
 msgid "Not sending sound"
-msgstr ""
-
-#: win_app/sound_menu_win.py
-msgid "Mute this PC while its sound plays elsewhere"
-msgstr ""
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
-msgid "Play this PC's sound on {name}"
-msgstr ""
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
-msgid "Send this PC's microphone to {name}"
-msgstr ""
-
-#: win_app/sound_menu_win.py
-msgid "No paired Mac to play on"
 msgstr ""
 
 #: win_app/sound_menu_win.py
