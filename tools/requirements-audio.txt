@@ -1,0 +1,9 @@
+# The audio experiment (docs/audio-experiment.md), run from source; not in any release build.
+PyNaCl>=1.6
+# Mac: playback. The macOS wheel carries its own PortAudio.
+sounddevice>=0.5; sys_platform == "darwin"
+# Windows: WASAPI loopback capture. Older releases of soundcard break on numpy 2.
+soundcard>=0.4.3; sys_platform == "win32"
+numpy>=1.26; sys_platform == "win32"
+# Windows: mutes the PC's own output while it streams (win_app/audio_local_mute.py).
+pycaw>=20240316; sys_platform == "win32"
