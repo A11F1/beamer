@@ -18,11 +18,15 @@ plays each number at most once.
     audio  = MAGIC || VERSION || 0x03 || sid (8) || seq (8, big-endian) || ciphertext || tag (16)
 
     ikm    = token text (43 bytes) || X25519(secret, peer share)
-    key    = HKDF-SHA256(ikm, AUDIO_SALT, b"audio" || key_id || share_s || share_r)
-    check  = HKDF-SHA256(ikm, AUDIO_SALT, b"confirm" || key_id || share_s || share_r)
+    key    = HKDF-SHA256(ikm, salt, b"audio" || key_id || share_s || share_r)
+    check  = HKDF-SHA256(ikm, salt, b"confirm" || key_id || share_s || share_r)
     tag    = ChaCha20-Poly1305(check, nonce = 12 zero bytes, plaintext = empty, aad = reply[:86])
     sid    = SHA-256(share_s || share_r)[:8]
     nonce  = 4 zero bytes || seq (8, big-endian); aad = audio[:22]
+
+Two kinds of stream run this way, each on its own port and keyed under its own salt, so neither's
+receiver can answer the other's sender: SOUND (a machine's output, port 24823, salt
+"beamer-audio-v1") and MIC (a machine's microphone, port 24824, salt "beamer-mic-v1").
 
 A hello is padded to a reply's length, so answering one sent from a forged address amplifies
 nothing. Each audio packet carries 5 ms of 48 kHz, 16-bit, stereo PCM, 960 bytes, uncompressed:
@@ -57,6 +61,11 @@ KIND_HELLO = 1
 KIND_REPLY = 2
 KIND_AUDIO = 3
 AUDIO_SALT = b"beamer-audio-v1"
+MIC_PORT = 24824
+MIC_SALT = b"beamer-mic-v1"
+# Each kind of stream: its port and its salt.
+SOUND = (AUDIO_PORT, AUDIO_SALT)
+MIC = (MIC_PORT, MIC_SALT)
 
 SAMPLE_RATE = 48000
 CHANNELS = 2
@@ -102,11 +111,11 @@ def _kind(data):
     return data[len(MAGIC) + 1]
 
 
-def _keys(token, shared, key_id, share_s, share_r):
+def _keys(token, shared, key_id, share_s, share_r, salt=AUDIO_SALT):
     ikm = protocol.link_ikm(token, shared)
     tail = key_id + share_s + share_r
-    return (protocol.hkdf_sha256(ikm, AUDIO_SALT, b"audio" + tail),
-            protocol.hkdf_sha256(ikm, AUDIO_SALT, b"confirm" + tail))
+    return (protocol.hkdf_sha256(ikm, salt, b"audio" + tail),
+            protocol.hkdf_sha256(ikm, salt, b"confirm" + tail))
 
 
 def stream_id(share_s, share_r):
@@ -125,10 +134,11 @@ class SenderSession:
     """The sending half of one stream, with no socket: `hello()` to send, `accept_reply()` for each
     answer, `seal()` for each 960-byte packet of PCM. Not thread-safe; AudioSender locks it."""
 
-    def __init__(self, token, secret=None):
+    def __init__(self, token, secret=None, salt=AUDIO_SALT):
         if not protocol.is_paired_token(token):
             raise ValueError("audio needs a token made by pairing")
         self._token = token
+        self._salt = salt
         self.key_id = protocol.key_id(token)
         self._secret = os.urandom(_SHARE) if secret is None else bytes(secret)
         self.share = crypto_scalarmult_base(self._secret)
@@ -161,7 +171,7 @@ class SenderSession:
             shared = protocol._x25519_shared(self._secret, share_r)
         except protocol.PreambleRefused:
             return False
-        key, check = _keys(self._token, shared, self.key_id, self.share, share_r)
+        key, check = _keys(self._token, shared, self.key_id, self.share, share_r, self._salt)
         tag = data[-_TAG:]
         if not _same(tag, _reply_tag(check, data[:-_TAG])):
             return False
@@ -193,7 +203,8 @@ class ReceiverCore:
     any other key id is ignored without an answer. Audio from the stream that has the speakers goes
     into `buffer`; `on_change(name or None)` is called when that stream changes."""
 
-    def __init__(self, peers, buffer, on_change=None, secret_source=os.urandom):
+    def __init__(self, peers, buffer, on_change=None, secret_source=os.urandom, salt=AUDIO_SALT):
+        self._salt = salt
         self._by_key_id = {}
         for token, name in peers.items():
             if protocol.is_paired_token(token):
@@ -240,7 +251,7 @@ class ReceiverCore:
             shared = protocol._x25519_shared(secret, share_s)
         except protocol.PreambleRefused:
             return None
-        key, check = _keys(token, shared, key_id, share_s, share_r)
+        key, check = _keys(token, shared, key_id, share_s, share_r, self._salt)
         head = _head(KIND_REPLY) + key_id + share_s + share_r
         reply = head + _reply_tag(check, head)
         sid = stream_id(share_s, share_r)
@@ -396,8 +407,8 @@ class AudioSender:
     from the capture thread and returns at once; nothing goes out until the receiver has answered,
     and audio captured meanwhile is dropped, as it would be stale by then."""
 
-    def __init__(self, token, host, port=AUDIO_PORT, on_state=None):
-        self._session = SenderSession(token)
+    def __init__(self, token, host, port=AUDIO_PORT, on_state=None, salt=AUDIO_SALT):
+        self._session = SenderSession(token, salt=salt)
         self._address = (host, port)
         self._on_state = on_state
         self._lock = threading.Lock()
@@ -485,8 +496,8 @@ class AudioSender:
 class AudioReceiver:
     """A ReceiverCore on a UDP socket, run on its own thread."""
 
-    def __init__(self, peers, buffer, port=AUDIO_PORT, bind="0.0.0.0", on_change=None):
-        self.core = ReceiverCore(peers, buffer, on_change=on_change)
+    def __init__(self, peers, buffer, port=AUDIO_PORT, bind="0.0.0.0", on_change=None, salt=AUDIO_SALT):
+        self.core = ReceiverCore(peers, buffer, on_change=on_change, salt=salt)
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._sock.bind((bind, port))
         self._sock.settimeout(0.25)

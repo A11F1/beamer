@@ -18,8 +18,9 @@ def open_output(buffer, device=None):
 
     PortAudio reads the Mac's devices once, when it starts, and never again. After an output comes
     or goes (headphones, a display, waking from sleep) its list is stale, and opening fails with an
-    internal error (-9986) until it starts afresh. So a failure restarts it, while this process
-    has no other stream open, and tries once more."""
+    internal error (-9986) until it starts afresh. So a failure restarts it and tries once more,
+    which closes every other stream this process has open: a caller with two (the Sound menu's
+    sound and microphone) refreshes once itself, with both closed, before opening either."""
     import sounddevice
 
     def callback(outdata, frames, timing, status):
@@ -50,6 +51,15 @@ def refresh_devices():
     import sounddevice
     sounddevice._terminate()
     sounddevice._initialize()
+
+
+def find_output(word):
+    """The name of the first output whose name holds `word`, such as "BlackHole", or None."""
+    import sounddevice
+    for device in sounddevice.query_devices():
+        if device["max_output_channels"] > 0 and word.casefold() in device["name"].casefold():
+            return device["name"]
+    return None
 
 
 def output_name(device=None):

@@ -1,21 +1,23 @@
 # Audio sharing: a local experiment
 
-Plays what a Windows PC is playing on a paired Mac's speakers, from a **Sound** menu in Beamer
-itself. A proof of concept kept in this fork: it is in the builds you make from this branch, not in
+Plays what a Windows PC is playing on a paired Mac's speakers, and sends the PC's microphone to the
+Mac's apps, from a **Sound** menu in Beamer itself. A proof of concept kept in this fork: it is in the builds you make from this branch, not in
 any release, and it changes nothing in Beamer's link, settings or wire version 6. Upstream is
 designing audio of its own ([kalkman-code/beamer#23](https://github.com/kalkman-code/beamer/issues/23)),
 so expect to throw this away when that lands.
 
 ## What it does
 
-- **One fixed route.** The PC's sound goes to the Mac, whichever machine has the keyboard and mouse.
+- **Two fixed routes.** The PC's sound goes to the Mac's speakers, and the PC's microphone to the
+  Mac's apps, whichever machine has the keyboard and mouse.
 - **Uses your pairing.** Each end reads the pairing Beamer already has. The Mac answers only
   machines it is paired with. There is nothing new to pair.
 - **Encrypted.** Every packet is ChaCha20-Poly1305, keyed afresh for each stream from the pair's
   token and an X25519 exchange, as the link is. The wire is described at the top of
   [core/audio_stream.py](../core/audio_stream.py).
-- **Separate from input.** It runs on its own UDP port, 24823, so a late audio packet never holds up
-  a keystroke.
+- **Separate from input.** Sound runs on its own UDP port, 24823, and the microphone on 24824, so a
+  late audio packet never holds up a keystroke. Each is keyed under its own salt, so neither's
+  receiver can answer the other's sender.
 - **Uncompressed.** 48 kHz 16-bit stereo, about 1.6 Mbit/s, in 5 ms packets. The Mac keeps 40 ms
   in hand by default.
 - **Quiet on the PC.** While the Mac is playing, the PC's own output is muted, and unmuted again
@@ -28,17 +30,43 @@ so expect to throw this away when that lands.
 | The first line | What is happening: not sending, waiting for the Mac, or playing on it |
 | Play this PC's sound on *Mac* | Starts sending to that Mac; choose it again to stop |
 | Mute this PC while its sound plays elsewhere | See [The PC's own speakers](#the-pcs-own-speakers) |
+| Send this PC's microphone to *Mac* | Sends the default microphone, such as a headset's; choose it again to stop |
 
 | On the Mac: Beamer's menu-bar menu, **Sound** | Does |
 |---|---|
 | The first lines | What is playing, and the buffer's lost, late and gap counts |
 | Play other machines' sound here | Turns receiving on and off. On by default |
 | Buffer | How much is kept in hand: 40 ms on a wire, more on Wi-Fi |
+| The microphone line | Whose microphone is arriving, and where it goes |
+| Use other machines' microphone here | Plays a PC's microphone into BlackHole. On by default |
 
 Every machine paired with the Mac may play there. Both menus remember their choices in
 `audio.json` beside Beamer's `settings.json`, and never change Beamer's own settings. Quitting
 Beamer on the PC stops the sound and unmutes the PC. Anything that goes wrong is in Beamer's log
 (**Open log folder** in the same menu), on lines starting `audio:`.
+
+## The microphone
+
+macOS lets no ordinary app add a microphone, so the PC's arrives through
+[BlackHole](https://github.com/ExistentialAudio/BlackHole), a free virtual audio device. Beamer plays
+the PC's microphone into BlackHole's output; any Mac app that chooses **BlackHole 2ch** as its
+microphone hears the PC's.
+
+1. Install BlackHole on the Mac once (it asks for your password):
+
+   ```sh
+   brew install --cask blackhole-2ch
+   ```
+
+2. In Beamer's **Sound** menu on the Mac, turn **Use other machines' microphone here** off and on,
+   so it finds BlackHole. The line above it says **Microphone waiting, into BlackHole 2ch**.
+3. On the PC, choose **Send this PC's microphone to** your Mac in Beamer's **Sound** menu.
+4. In the Mac app (Zoom, Discord, FaceTime, QuickTime), choose **BlackHole 2ch** as the
+   microphone.
+
+If the Mac hears nothing while the PC says **Microphone going to** the Mac, Windows may be keeping
+the microphone from desktop apps: **Settings → Privacy & security → Microphone → Let desktop apps
+access your microphone**. A microphone sent with nothing listening on the Mac is simply dropped.
 
 ## Build Beamer locally
 
@@ -145,6 +173,8 @@ menu's second line. It unmutes when streaming stops, or Beamer quits.
 ## Known limits
 
 - Windows to Mac only. Capture is WASAPI loopback (`win_app/audio_capture_win.py`); playback is
-  PortAudio (`mac_app/audio_playback_mac.py`), on the Mac's default output when receiving starts.
+  PortAudio (`mac_app/audio_playback_mac.py`), following the Mac's default output.
 - No compression and no clock-drift correction, beyond dropping packets.
-- No microphone, and nothing follows the keyboard and mouse.
+- The microphone goes PC to Mac only, and needs BlackHole on the Mac. Nothing follows the keyboard
+  and mouse.
+- The command line sends and receives sound only, not the microphone.

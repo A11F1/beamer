@@ -73,3 +73,43 @@ def capture(deliver, stop: threading.Event, device=None):
         except Exception as error:
             LOGGER.warning("audio: capture stopped (%s); trying again", error)
             stop.wait(1.0)
+
+
+def microphone_name(device=None):
+    """The full name of the microphone `device` names, or of the default microphone."""
+    import soundcard
+    return (soundcard.get_microphone(device) if device else soundcard.default_microphone()).name
+
+
+def capture_microphone(deliver, stop: threading.Event, device=None):
+    """Calls `deliver(pcm_bytes)` with what the default microphone (or the one named `device`)
+    hears until `stop` is set, as 48 kHz 16-bit stereo: a headset's one channel on both sides. If
+    the microphone goes away, or the default changes, it is opened again.
+
+    Windows hands a desktop app silence if microphone access is off for desktop apps (Settings,
+    Privacy & security, Microphone); nothing here can tell that from a quiet room."""
+    import numpy
+    import soundcard
+
+    warnings.filterwarnings("ignore", category=soundcard.SoundcardRuntimeWarning)
+    while not stop.is_set():
+        try:
+            microphone = soundcard.get_microphone(device) if device else soundcard.default_microphone()
+            LOGGER.info("audio: capturing the microphone %s", microphone.name)
+            with microphone.recorder(samplerate=audio_stream.SAMPLE_RATE, channels=1,
+                                     blocksize=READ_FRAMES) as recorder:
+                current = microphone.name
+                checked = time.monotonic()
+                while not stop.is_set():
+                    data = recorder.record(numframes=READ_FRAMES)
+                    mono = numpy.clip(data[:, 0], -1.0, 1.0)
+                    stereo = numpy.repeat(mono, audio_stream.CHANNELS)
+                    deliver((stereo * 32767.0).astype("<i2").tobytes())
+                    if device is None and time.monotonic() - checked > 2.0:
+                        checked = time.monotonic()
+                        if soundcard.default_microphone().name != current:
+                            LOGGER.info("audio: default microphone changed, following it")
+                            break
+        except Exception as error:
+            LOGGER.warning("audio: microphone capture stopped (%s); trying again", error)
+            stop.wait(1.0)

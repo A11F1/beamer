@@ -1,13 +1,13 @@
-"""Sound, in Beamer's tray menu on Windows: plays this PC's sound on a paired Mac, and mutes this PC
-meanwhile.
+"""Sound, in Beamer's tray menu on Windows: plays this PC's sound on a paired Mac, muting this PC
+meanwhile, and sends this PC's microphone to a Mac, whose apps hear it through BlackHole.
 
 Part of the local audio experiment (docs/audio-experiment.md), not of any release. Its choices,
-where to send and whether to mute, live in audio.json beside settings.json, so Beamer's own
+where each goes and whether to mute, live in audio.json beside settings.json, so Beamer's own
 settings and wire are untouched.
 
-Windows' audio calls (soundcard's WASAPI loopback, pycaw's mute) need COM multithreaded, and Qt
-makes the main thread single-threaded for drag and drop, so every one of them runs on one worker
-thread of their own. The menu only ever reads what that thread last saw.
+Windows' audio calls (soundcard's WASAPI, pycaw's mute) need COM multithreaded, and Qt makes the
+main thread single-threaded for drag and drop, so they run on worker threads of their own, one for
+the sound and one for the microphone. The menu only ever reads what those threads last saw.
 """
 
 import collections
@@ -26,7 +26,7 @@ from core.i18n import tr
 
 LOGGER = logging.getLogger("Beamer")
 
-DEFAULTS = {"send_to": "", "mute_local": True}
+DEFAULTS = {"send_to": "", "mute_local": True, "mic_to": ""}
 TICK_MS = 250
 RECHECK_SECONDS = 5.0
 CLOSE_SECONDS = 4.0
@@ -38,11 +38,12 @@ def _com_ready():
 
 
 class Engine:
-    """Owns the sending session on the COM worker. Every method returns at once; what happened is
-    read back through `snapshot()`."""
+    """Owns one sending session, this PC's sound or its microphone, on a COM worker of its own.
+    Every method returns at once; what happened is read back through `snapshot()`."""
 
-    def __init__(self, settings_path):
+    def __init__(self, settings_path, source=audio_service.SOURCE_LOOPBACK):
         self.settings_path = settings_path
+        self.source = source
         self._worker = concurrent.futures.ThreadPoolExecutor(max_workers=1, initializer=_com_ready,
                                                              thread_name_prefix="audio-com")
         self._lock = threading.Lock()
@@ -77,7 +78,9 @@ class Engine:
             peer = audio_service.find_peer(peers, peer_key)
             if peer is None:
                 raise PairingError(tr("That machine is no longer paired with this PC."))
-            session = audio_service.SendSession(peer, peers, mute_local=mute_local, notice=self._notice)
+            session = audio_service.SendSession(peer, peers, source=self.source,
+                                                mute_local=mute_local and self.source == audio_service.SOURCE_LOOPBACK,
+                                                notice=self._notice)
             session.start()
             LOGGER.info("audio: sending %s to %s at %s", session.what, session.name, session.host)
         except Exception as error:
@@ -114,15 +117,22 @@ class Engine:
         with self._lock:
             session, problem = self._session, self._problem
             notice = self._notices[-1] if self._notices else ""
+        mic = self.source == audio_service.SOURCE_MIC
         if problem:
             return problem, ""
         if not session:
             if self._wanted and self._wanted[0]:
                 return tr("Starting…"), ""
-            return tr("Not sending sound"), ""
+            return (tr("Not sending the microphone") if mic else tr("Not sending sound")), ""
         if session.streaming:
+            if mic:
+                return tr("Microphone going to {name}").format(name=session.name), (
+                    tr("Capturing {output}").format(output=session.output) if session.output else "")
             capturing = tr("Capturing {output}").format(output=session.output) if session.output else ""
             return tr("Playing on {name}").format(name=session.name), notice or capturing
+        if mic:
+            return tr("Waiting for {name}…").format(name=session.name), tr(
+                "Turn on Use other machines' microphone in Beamer's Sound menu on {name}.").format(name=session.name)
         return tr("Waiting for {name}…").format(name=session.name), notice or tr(
             "Turn on Sound in Beamer's menu on {name}.").format(name=session.name)
 
@@ -145,8 +155,10 @@ class SoundMenu(QObject):
         self.settings_path = settings_path
         self.prefs = audio_service.Preferences(audio_service.preferences_path(settings_path), DEFAULTS)
         self.engine = Engine(settings_path)
+        self.mic_engine = Engine(settings_path, source=audio_service.SOURCE_MIC)
         self.peers = []
         self._peer_actions = {}
+        self._mic_actions = {}
         self._shown = None
         self._checked = 0.0
         self._closed = False
@@ -164,6 +176,14 @@ class SoundMenu(QObject):
         self.mute_action.setCheckable(True)
         self.mute_action.setChecked(bool(self.prefs["mute_local"]))
         self.mute_action.triggered.connect(self._mute_chosen)
+        self.menu.addSeparator()
+        self.mic_status_action = self.menu.addAction(tr("Not sending the microphone"))
+        self.mic_status_action.setEnabled(False)
+        self.mic_detail_action = self.menu.addAction("")
+        self.mic_detail_action.setEnabled(False)
+        self.mic_detail_action.setVisible(False)
+        self._mic_end = self.menu.addSeparator()
+        self._mic_end.setVisible(False)
 
         self._read_peers()
         self._apply()
@@ -187,23 +207,36 @@ class SoundMenu(QObject):
         if shown == self._shown:
             return
         self._shown = shown
-        for action in self._peer_actions.values():
+        self._peer_actions = self._rebuild(self._peer_actions, self._targets_end, shown,
+                                           tr("Play this PC's sound on {name}"), self._target_chosen)
+        self._mic_actions = self._rebuild(self._mic_actions, self._mic_end, shown,
+                                          tr("Send this PC's microphone to {name}"), self._mic_chosen)
+
+    def _rebuild(self, actions, before, shown, words, chosen):
+        """One checkable item per Mac, in front of `before`, in place of `actions`."""
+        for action in actions.values():
             self.menu.removeAction(action)
-        self._peer_actions = {}
+        actions = {}
         for key, name in shown:
-            action = QAction(tr("Play this PC's sound on {name}").format(name=name), self.menu)
-            self.menu.insertAction(self._targets_end, action)
+            action = QAction(words.format(name=name), self.menu)
+            self.menu.insertAction(before, action)
             action.setCheckable(True)
-            action.triggered.connect(lambda on, key=key: self._target_chosen(key, on))
-            self._peer_actions[key] = action
+            action.triggered.connect(lambda on, key=key: chosen(key, on))
+            actions[key] = action
         if not shown:
             action = QAction(tr("No paired Mac to play on"), self.menu)
-            self.menu.insertAction(self._targets_end, action)
+            self.menu.insertAction(before, action)
             action.setEnabled(False)
-            self._peer_actions[""] = action
+            actions[""] = action
+        return actions
 
     def _target_chosen(self, key, on):
         self.prefs.set(send_to=key if on else "")
+        self._apply()
+        self.refresh()
+
+    def _mic_chosen(self, key, on):
+        self.prefs.set(mic_to=key if on else "")
         self._apply()
         self.refresh()
 
@@ -216,6 +249,10 @@ class SoundMenu(QObject):
         if key and audio_service.find_peer(self.peers, key) is None:
             key = ""
         self.engine.apply(key, bool(self.prefs["mute_local"]))
+        mic_key = self.prefs["mic_to"]
+        if mic_key and audio_service.find_peer(self.peers, mic_key) is None:
+            mic_key = ""
+        self.mic_engine.apply(mic_key, False)
 
     # Every quarter second --------------------------------------------------------------------
 
@@ -228,6 +265,7 @@ class SoundMenu(QObject):
             if [entry["token"] for entry in self.peers] != before:
                 self._apply()
         self.engine.tick()
+        self.mic_engine.tick()
         self.refresh()
 
     def refresh(self):
@@ -235,10 +273,14 @@ class SoundMenu(QObject):
         self.status_action.setText(status)
         self.detail_action.setText(detail)
         self.detail_action.setVisible(bool(detail))
-        wanted = self.prefs["send_to"]
-        for key, action in self._peer_actions.items():
-            if action.isCheckable():
-                action.setChecked(bool(key) and key == wanted)
+        for actions, wanted in ((self._peer_actions, self.prefs["send_to"]), (self._mic_actions, self.prefs["mic_to"])):
+            for key, action in actions.items():
+                if action.isCheckable():
+                    action.setChecked(bool(key) and key == wanted)
+        status, detail = self.mic_engine.snapshot()
+        self.mic_status_action.setText(status)
+        self.mic_detail_action.setText(detail)
+        self.mic_detail_action.setVisible(bool(detail))
 
     def close(self):
         """Stops sending and unmutes this PC; Beamer calls it on the way out."""
@@ -247,3 +289,4 @@ class SoundMenu(QObject):
         self._closed = True
         self._timer.stop()
         self.engine.close()
+        self.mic_engine.close()

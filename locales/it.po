@@ -4009,8 +4009,20 @@ msgid "Buffer"
 msgstr "Buffer"
 
 #: mac_app/sound_menu.py
+msgid "Microphone is off"
+msgstr "Microfono disattivato"
+
+#: mac_app/sound_menu.py
+msgid "Use other machines' microphone here"
+msgstr "Usa qui il microfono degli altri computer"
+
+#: mac_app/sound_menu.py
 msgid "No paired machine can send sound"
 msgstr "Nessun computer abbinato può inviare audio"
+
+#: mac_app/sound_menu.py
+msgid "Install BlackHole 2ch, then turn this off and on"
+msgstr "Installa BlackHole 2ch, poi disattiva e riattiva questa opzione"
 
 #: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Starting…"
@@ -4018,8 +4030,18 @@ msgstr "Avvio…"
 
 #: mac_app/sound_menu.py
 #, python-brace-format
+msgid "Microphone waiting, into {output}"
+msgstr "Microfono in attesa, verso {output}"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
 msgid "Listening on {output}"
 msgstr "In ascolto su {output}"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Microphone from {name}, into {output}"
+msgstr "Microfono da {name}, verso {output}"
 
 #: mac_app/sound_menu.py
 #, python-brace-format
@@ -5569,6 +5591,20 @@ msgid "Mute this PC while its sound plays elsewhere"
 msgstr "Disattiva l'audio di questo PC mentre suona altrove"
 
 #: win_app/sound_menu_win.py
+msgid "Not sending the microphone"
+msgstr "Microfono non inviato"
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Play this PC's sound on {name}"
+msgstr "Riproduci l'audio di questo PC su {name}"
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Send this PC's microphone to {name}"
+msgstr "Invia il microfono di questo PC a {name}"
+
+#: win_app/sound_menu_win.py
 msgid "No paired Mac to play on"
 msgstr "Nessun Mac abbinato su cui riprodurre"
 
@@ -5593,13 +5629,18 @@ msgstr "In riproduzione su {name}"
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
+msgid "Turn on Use other machines' microphone in Beamer's Sound menu on {name}."
+msgstr "Su {name}, attiva Usa qui il microfono degli altri computer nel menu Audio di Beamer."
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
 msgid "Turn on Sound in Beamer's menu on {name}."
 msgstr "Su {name}, attiva Audio nel menu di Beamer."
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
-msgid "Play this PC's sound on {name}"
-msgstr "Riproduci l'audio di questo PC su {name}"
+msgid "Microphone going to {name}"
+msgstr "Microfono inviato a {name}"
 
 #: win_app/widgets.py
 msgid "Response time: no fresh measurement"

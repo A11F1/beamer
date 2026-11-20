@@ -49,6 +49,23 @@ class HandshakeTests(unittest.TestCase):
         self.assertEqual(buffer.packets, ["reset", (1, pcm(1)), (2, pcm(2)), (3, pcm(3))])
         self.assertEqual(receiver.playing, "Studio PC")
 
+    def test_a_microphone_stream_and_a_sound_stream_never_answer_each_other(self):
+        shared = token()
+        for sender_salt, receiver_salt in ((audio.MIC_SALT, audio.AUDIO_SALT), (audio.AUDIO_SALT, audio.MIC_SALT)):
+            sender = audio.SenderSession(shared, salt=sender_salt)
+            receiver = audio.ReceiverCore({shared: "Studio PC"}, Collector(), salt=receiver_salt)
+            self.assertFalse(sender.accept_reply(receiver.handle(sender.hello(), 0.0)))
+
+    def test_a_microphone_stream_works_under_its_own_salt(self):
+        shared = token()
+        sender = audio.SenderSession(shared, salt=audio.MIC_SALT)
+        buffer = Collector()
+        receiver = audio.ReceiverCore({shared: "Studio PC"}, buffer, salt=audio.MIC_SALT)
+        self.assertTrue(sender.accept_reply(receiver.handle(sender.hello(), 0.0)))
+        receiver.handle(sender.seal(pcm(1)), 0.1)
+        self.assertEqual(buffer.packets, ["reset", (1, pcm(1))])
+        self.assertNotEqual(audio.MIC[0], audio.SOUND[0])
+
     def test_a_hello_is_as_long_as_its_reply_so_answering_amplifies_nothing(self):
         sender, _, _, reply = handshake(token())
         self.assertEqual(len(sender.hello()), len(reply))

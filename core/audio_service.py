@@ -26,6 +26,7 @@ from core.i18n import N_, tr
 
 SOURCE_LOOPBACK = "loopback"
 SOURCE_TONE = "tone"
+SOURCE_MIC = "mic"
 
 
 # Beamer's pairing ---------------------------------------------------------------------------
@@ -179,7 +180,9 @@ MUTE_WORDS = {
 # Sending ------------------------------------------------------------------------------------
 
 class SendSession:
-    """Streams this machine's sound (or a test tone) to one peer until `stop()`.
+    """Streams this machine's sound, its microphone (SOURCE_MIC) or a test tone to one peer until
+    `stop()`. A microphone goes as its own kind of stream (audio_stream.MIC), to the peer's
+    microphone receiver rather than its speakers.
 
     With `mute_local`, this PC's own output is muted while the peer is playing. Windows' audio
     calls need a thread whose COM is set up for them, so the session never makes them itself:
@@ -187,13 +190,14 @@ class SendSession:
     command line's main thread; the window's COM worker). `notice(text)` is told what the mute did.
     """
 
-    def __init__(self, peer, peers, *, host=None, port=audio_stream.AUDIO_PORT, source=SOURCE_LOOPBACK,
+    def __init__(self, peer, peers, *, host=None, port=None, source=SOURCE_LOOPBACK,
                  device=None, mute_local=False, notice=None):
         self.name = label(peer, peers)
         self.host = host or peer.get("host")
         if not self.host:
             raise PairingError(f"Beamer has no address for {self.name}.")
-        self.port = port
+        stream_port, salt = audio_stream.MIC if source == SOURCE_MIC else audio_stream.SOUND
+        self.port = stream_port if port is None else port
         self.source = source
         self.notice = notice or (lambda text: None)
         self._stop = threading.Event()
@@ -207,8 +211,14 @@ class SendSession:
             self.output = audio_capture_win.output_name(device)
             if mute_local:
                 self._mute = self._make_mute(self.output)
+        elif source == SOURCE_MIC:
+            if sys.platform != "win32":
+                raise PairingError("Sending this machine's microphone works on Windows only.")
+            import audio_capture_win
+            self._capture = audio_capture_win
+            self.output = audio_capture_win.microphone_name(device)
         self._device = device
-        self.sender = audio_stream.AudioSender(peer["token"], self.host, port)
+        self.sender = audio_stream.AudioSender(peer["token"], self.host, self.port, salt=salt)
         self._thread = None
 
     def _make_mute(self, output):
@@ -224,7 +234,11 @@ class SendSession:
 
     @property
     def what(self):
-        return "a 440 Hz test tone" if self.source == SOURCE_TONE else f"what {self.output} plays"
+        if self.source == SOURCE_TONE:
+            return "a 440 Hz test tone"
+        if self.source == SOURCE_MIC:
+            return f"what {self.output} hears"
+        return f"what {self.output} plays"
 
     @property
     def streaming(self):
@@ -246,7 +260,8 @@ class SendSession:
                 if mute:
                     mute.heard(capture.peak(pcm))
 
-            target, args = capture.capture, (deliver, self._stop, self._device)
+            reader = capture.capture_microphone if self.source == SOURCE_MIC else capture.capture
+            target, args = reader, (deliver, self._stop, self._device)
         self._thread = threading.Thread(target=target, args=args, name="audio-source", daemon=True)
         self._thread.start()
         return self
@@ -282,13 +297,18 @@ def output_devices():
 # Receiving ----------------------------------------------------------------------------------
 
 class ReceiveSession:
-    """Plays what the allowed peers send until `stop()`. `peers` maps token to the name to show."""
+    """Plays what the allowed peers send until `stop()`. `peers` maps token to the name to show.
+    `stream` is audio_stream.SOUND (a machine's output) or audio_stream.MIC (its microphone), and
+    `device` the output to play on: None for the default, or a name such as "BlackHole 2ch"."""
 
-    def __init__(self, peers, *, port=audio_stream.AUDIO_PORT, device=None, latency_ms=40.0, on_change=None):
+    def __init__(self, peers, *, port=None, device=None, latency_ms=40.0, on_change=None,
+                 stream=audio_stream.SOUND):
         target = max(1, round(latency_ms / 1000 / audio_stream.PACKET_SECONDS))
         self.latency_ms = target * audio_stream.PACKET_SECONDS * 1000
         self.buffer = audio_stream.JitterBuffer(target=target, limit=max(target * 4, target + 20))
-        self.receiver = audio_stream.AudioReceiver(peers, self.buffer, port=port, on_change=on_change)
+        stream_port, salt = stream
+        self.receiver = audio_stream.AudioReceiver(peers, self.buffer, port=stream_port if port is None else port,
+                                                   on_change=on_change, salt=salt)
         self.port = self.receiver.port
         import audio_playback_mac
         self._playback = audio_playback_mac
@@ -301,19 +321,28 @@ class ReceiveSession:
             raise
         self.receiver.start()
 
-    def reopen_output(self):
-        """Plays on the output as it is now, such as headphones just plugged in, while the
-        receiver keeps running: the sender never notices, and the buffer carries on."""
+    def close_output(self):
+        """Stops playing, while the receiver keeps running and filling the buffer."""
         old, self.output = self.output, None
-        try:
-            old.stop()
-            old.close()
-        except Exception:
-            pass
-        # With no stream open, PortAudio can start afresh and see today's default.
-        self._playback.refresh_devices()
+        if old is not None:
+            try:
+                old.stop()
+                old.close()
+            except Exception:
+                pass
+
+    def open_output(self):
+        """Plays again, on the output as PortAudio now sees it."""
         self.output = self._playback.open_output(self.buffer, self.device)
         self.output_name = self._playback.output_name(self.device)
+
+    def reopen_output(self):
+        """Plays on the output as it is now, such as headphones just plugged in, while the
+        receiver keeps running: the sender never notices, and the buffer carries on. Only for a
+        process with no other PortAudio stream open: restarting PortAudio closes them all."""
+        self.close_output()
+        self._playback.refresh_devices()
+        self.open_output()
 
     @property
     def playing(self):

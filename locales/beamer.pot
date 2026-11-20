@@ -3949,7 +3949,19 @@ msgid "Buffer"
 msgstr ""
 
 #: mac_app/sound_menu.py
+msgid "Microphone is off"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "Use other machines' microphone here"
+msgstr ""
+
+#: mac_app/sound_menu.py
 msgid "No paired machine can send sound"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "Install BlackHole 2ch, then turn this off and on"
 msgstr ""
 
 #: mac_app/sound_menu.py win_app/sound_menu_win.py
@@ -3958,7 +3970,17 @@ msgstr ""
 
 #: mac_app/sound_menu.py
 #, python-brace-format
+msgid "Microphone waiting, into {output}"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
 msgid "Listening on {output}"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Microphone from {name}, into {output}"
 msgstr ""
 
 #: mac_app/sound_menu.py
@@ -5486,6 +5508,20 @@ msgid "Mute this PC while its sound plays elsewhere"
 msgstr ""
 
 #: win_app/sound_menu_win.py
+msgid "Not sending the microphone"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Play this PC's sound on {name}"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Send this PC's microphone to {name}"
+msgstr ""
+
+#: win_app/sound_menu_win.py
 msgid "No paired Mac to play on"
 msgstr ""
 
@@ -5510,12 +5546,17 @@ msgstr ""
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
+msgid "Turn on Use other machines' microphone in Beamer's Sound menu on {name}."
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
 msgid "Turn on Sound in Beamer's menu on {name}."
 msgstr ""
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
-msgid "Play this PC's sound on {name}"
+msgid "Microphone going to {name}"
 msgstr ""
 
 #: win_app/widgets.py
