@@ -6,5 +6,9 @@
          runtime without this, and `import Foundation` never finishes. Native arm64 needs nothing. -->
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <true/>
+    <!-- The local audio experiment: the hardened runtime refuses the microphone without this, and
+         macOS never even asks. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
 </dict>
 </plist>

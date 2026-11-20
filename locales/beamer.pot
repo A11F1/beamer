@@ -3948,12 +3948,16 @@ msgstr ""
 msgid "Buffer"
 msgstr ""
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Microphone is off"
 msgstr ""
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Use other machines' microphone here"
+msgstr ""
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+msgid "Not sending the microphone"
 msgstr ""
 
 #: mac_app/sound_menu.py
@@ -3968,9 +3972,14 @@ msgstr ""
 msgid "Starting…"
 msgstr ""
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Microphone waiting, into {output}"
+msgstr ""
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Waiting for {name}…"
 msgstr ""
 
 #: mac_app/sound_menu.py
@@ -3978,9 +3987,19 @@ msgstr ""
 msgid "Listening on {output}"
 msgstr ""
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Microphone from {name}, into {output}"
+msgstr ""
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Microphone going to {name}"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Send this Mac's microphone to {name}"
 msgstr ""
 
 #: mac_app/sound_menu.py
@@ -5500,15 +5519,15 @@ msgid "Cannot switch — the desktop did not let Beamer send input to {name}"
 msgstr ""
 
 #: win_app/sound_menu_win.py
+msgid "Install VB-CABLE, then turn this off and on"
+msgstr ""
+
+#: win_app/sound_menu_win.py
 msgid "Not sending sound"
 msgstr ""
 
 #: win_app/sound_menu_win.py
 msgid "Mute this PC while its sound plays elsewhere"
-msgstr ""
-
-#: win_app/sound_menu_win.py
-msgid "Not sending the microphone"
 msgstr ""
 
 #: win_app/sound_menu_win.py
@@ -5531,11 +5550,6 @@ msgstr ""
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
-msgid "Waiting for {name}…"
-msgstr ""
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
 msgid "Capturing {output}"
 msgstr ""
 
@@ -5552,11 +5566,6 @@ msgstr ""
 #: win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Turn on Sound in Beamer's menu on {name}."
-msgstr ""
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
-msgid "Microphone going to {name}"
 msgstr ""
 
 #: win_app/widgets.py

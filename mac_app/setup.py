@@ -55,6 +55,7 @@ setup(
         "settings_store",
         "sound_menu",
         "audio_playback_mac",
+        "audio_capture_mac",
         "theme",
         "tokens",
         "wake",
@@ -108,6 +109,8 @@ setup(
                 "NSPrincipalClass": "NSApplication",
                 "ATSApplicationFontsPath": "Fonts",
                 "NSHumanReadableCopyright": "Copyright 2026 Toby Kalkman",
+                # The local audio experiment: this Mac's microphone, sent to a paired PC.
+                "NSMicrophoneUsageDescription": "Beamer sends this Mac's microphone to a paired computer when you turn that on in its Sound menu.",
                 "NSLocalNetworkUsageDescription": "Beamer needs to reach your other computers on your local network to share keyboard and mouse input.",
                 "CFBundleLocalizations": ["en", "it"],
                 "CFBundleDevelopmentRegion": "en_GB",

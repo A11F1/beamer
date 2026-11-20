@@ -20,13 +20,13 @@ from PySide6.QtCore import QObject, QTimer
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
-from core import audio_service
+from core import audio_service, audio_stream
 from core.audio_service import PairingError
 from core.i18n import tr
 
 LOGGER = logging.getLogger("Beamer")
 
-DEFAULTS = {"send_to": "", "mute_local": True, "mic_to": ""}
+DEFAULTS = {"send_to": "", "mute_local": True, "mic_to": "", "mic_in": True}
 TICK_MS = 250
 RECHECK_SECONDS = 5.0
 CLOSE_SECONDS = 4.0
@@ -147,6 +147,111 @@ class Engine:
         self._worker.shutdown(wait=False)
 
 
+class MicReceiver:
+    """Plays a paired Mac's microphone into VB-CABLE, on a COM worker of its own, so Windows apps
+    can record it from CABLE Output. Every method returns at once; `snapshot()` says how it is."""
+
+    def __init__(self, settings_path):
+        self.settings_path = settings_path
+        self._worker = concurrent.futures.ThreadPoolExecutor(max_workers=1, initializer=_com_ready,
+                                                             thread_name_prefix="audio-mic-in")
+        self._lock = threading.Lock()
+        self._session = None
+        self._problem = None
+        self._missing_cable = False
+        self._playing = None
+        self.wanted = False
+
+    def apply(self, on):
+        self.wanted = bool(on)
+        self._worker.submit(self._apply, self.wanted)
+
+    @property
+    def failed(self):
+        """Wanted but not running for a reason other than a missing cable: worth trying again."""
+        with self._lock:
+            return self.wanted and self._session is None and self._problem is not None
+
+    def _apply(self, on):
+        if on != self.wanted:
+            return
+        self._stop_session()
+        with self._lock:
+            self._problem, self._missing_cable = None, False
+        if not on:
+            return
+        try:
+            import audio_playback_win
+            cable = audio_playback_win.find_output(audio_playback_win.CABLE_WORD)
+            if cable is None:
+                with self._lock:
+                    self._missing_cable = True
+                return
+            peers = audio_service.paired_peers(self.settings_path)
+            names = {entry["token"]: audio_service.label(entry, peers) for entry in peers}
+            session = audio_service.ReceiveSession(names, device=cable, stream=audio_stream.MIC,
+                                                   on_change=self._changed)
+            LOGGER.info("audio: mic listening on UDP %s, into %s", session.port, cable)
+        except Exception as error:
+            LOGGER.warning("audio: could not receive a microphone: %s", error)
+            with self._lock:
+                self._problem = str(error)
+            return
+        with self._lock:
+            self._session = session
+
+    def _changed(self, name):
+        with self._lock:
+            self._playing = name
+
+    def _stop_session(self):
+        with self._lock:
+            session, self._session, self._playing = self._session, None, None
+        if session:
+            try:
+                session.stop()
+            except Exception:
+                LOGGER.exception("audio: the microphone receiver did not stop cleanly")
+
+    def tick(self):
+        self._worker.submit(self._tick)
+
+    def _tick(self):
+        with self._lock:
+            session = self._session
+        if session and not (session.output and session.output.active):
+            # The cable's playback stopped under it; the receiver keeps running meanwhile.
+            try:
+                session.close_output()
+                session.open_output()
+            except Exception as error:
+                LOGGER.warning("audio: could not reopen the cable: %s", error)
+
+    def snapshot(self):
+        with self._lock:
+            session, problem, missing, playing = self._session, self._problem, self._missing_cable, self._playing
+        if problem:
+            return problem
+        if not self.wanted:
+            return tr("Microphone is off")
+        if missing:
+            return tr("Install VB-CABLE, then turn this off and on")
+        if not session:
+            return tr("Starting…")
+        if playing:
+            return tr("Microphone from {name}, into {output}").format(name=playing, output=session.output_name)
+        return tr("Microphone waiting, into {output}").format(output=session.output_name)
+
+    def close(self, timeout=CLOSE_SECONDS):
+        self.wanted = False
+        future = self._worker.submit(self._stop_session)
+        try:
+            future.result(timeout)
+        except Exception as error:
+            LOGGER.warning("audio: the microphone receiver did not stop cleanly: %s", error)
+        self._worker.shutdown(wait=False)
+
+
 class SoundMenu(QObject):
     """The Sound submenu. `before` is the tray menu's action it goes in front of."""
 
@@ -156,6 +261,7 @@ class SoundMenu(QObject):
         self.prefs = audio_service.Preferences(audio_service.preferences_path(settings_path), DEFAULTS)
         self.engine = Engine(settings_path)
         self.mic_engine = Engine(settings_path, source=audio_service.SOURCE_MIC)
+        self.mic_receiver = MicReceiver(settings_path)
         self.peers = []
         self._peer_actions = {}
         self._mic_actions = {}
@@ -184,9 +290,17 @@ class SoundMenu(QObject):
         self.mic_detail_action.setVisible(False)
         self._mic_end = self.menu.addSeparator()
         self._mic_end.setVisible(False)
+        self.menu.addSeparator()
+        self.mic_in_status_action = self.menu.addAction(tr("Microphone is off"))
+        self.mic_in_status_action.setEnabled(False)
+        self.mic_in_action = self.menu.addAction(tr("Use other machines' microphone here"))
+        self.mic_in_action.setCheckable(True)
+        self.mic_in_action.setChecked(bool(self.prefs["mic_in"]))
+        self.mic_in_action.triggered.connect(self._mic_in_chosen)
 
         self._read_peers()
         self._apply()
+        self.mic_receiver.apply(bool(self.prefs["mic_in"]))
         self._timer = QTimer(self)
         self._timer.setInterval(TICK_MS)
         self._timer.timeout.connect(self._tick)
@@ -240,6 +354,12 @@ class SoundMenu(QObject):
         self._apply()
         self.refresh()
 
+    def _mic_in_chosen(self, on):
+        # Turning it on also looks for VB-CABLE again, so installing it needs no restart.
+        self.prefs.set(mic_in=bool(on))
+        self.mic_receiver.apply(bool(on))
+        self.refresh()
+
     def _mute_chosen(self, on):
         self.prefs.set(mute_local=bool(on))
         self._apply()
@@ -264,8 +384,12 @@ class SoundMenu(QObject):
             self._read_peers()
             if [entry["token"] for entry in self.peers] != before:
                 self._apply()
+                self.mic_receiver.apply(bool(self.prefs["mic_in"]))
+            elif self.mic_receiver.failed:
+                self.mic_receiver.apply(True)
         self.engine.tick()
         self.mic_engine.tick()
+        self.mic_receiver.tick()
         self.refresh()
 
     def refresh(self):
@@ -281,6 +405,7 @@ class SoundMenu(QObject):
         self.mic_status_action.setText(status)
         self.mic_detail_action.setText(detail)
         self.mic_detail_action.setVisible(bool(detail))
+        self.mic_in_status_action.setText(self.mic_receiver.snapshot())
 
     def close(self):
         """Stops sending and unmutes this PC; Beamer calls it on the way out."""
@@ -290,3 +415,4 @@ class SoundMenu(QObject):
         self._timer.stop()
         self.engine.close()
         self.mic_engine.close()
+        self.mic_receiver.close()

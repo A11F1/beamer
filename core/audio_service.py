@@ -211,15 +211,24 @@ class SendSession:
             self.output = audio_capture_win.output_name(device)
             if mute_local:
                 self._mute = self._make_mute(self.output)
-        elif source == SOURCE_MIC:
-            if sys.platform != "win32":
-                raise PairingError("Sending this machine's microphone works on Windows only.")
+        elif source == SOURCE_MIC and sys.platform == "win32":
             import audio_capture_win
             self._capture = audio_capture_win
             self.output = audio_capture_win.microphone_name(device)
+        elif source == SOURCE_MIC and sys.platform == "darwin":
+            # A PortAudio input stream, opened and closed by its owner (open_stream, close_stream)
+            # around PortAudio restarts, rather than a thread of its own.
+            import audio_capture_mac
+            self._capture = audio_capture_mac
+            self.output = audio_capture_mac.input_name(device)
+            if self.output is None:
+                raise PairingError("This Mac has no microphone to send.")
+        elif source == SOURCE_MIC:
+            raise PairingError("Sending this machine's microphone works on Windows and macOS only.")
         self._device = device
         self.sender = audio_stream.AudioSender(peer["token"], self.host, self.port, salt=salt)
         self._thread = None
+        self.input = None
 
     def _make_mute(self, output):
         import audio_local_mute
@@ -248,8 +257,29 @@ class SendSession:
     def sent(self):
         return self.sender.sent
 
+    @property
+    def _stream_based(self):
+        return self.source == SOURCE_MIC and sys.platform == "darwin"
+
+    def open_stream(self):
+        """The Mac's microphone stream, opened; for a session whose capture is a PortAudio stream."""
+        if self._stream_based and self.input is None:
+            self.input = self._capture.open_input(self.sender.send, self.output)
+
+    def close_stream(self):
+        stream, self.input = self.input, None
+        if stream is not None:
+            try:
+                stream.stop()
+                stream.close()
+            except Exception:
+                pass
+
     def start(self):
         self.sender.start()
+        if self._stream_based:
+            self.open_stream()
+            return self
         if self.source == SOURCE_TONE:
             target, args = tone_source, (self.sender.send, self._stop)
         else:
@@ -277,6 +307,7 @@ class SendSession:
 
     def stop(self):
         self._stop.set()
+        self.close_stream()
         self.restore()
         self.sender.stop()
         if self._thread and self._thread.is_alive():
@@ -310,12 +341,15 @@ class ReceiveSession:
         self.receiver = audio_stream.AudioReceiver(peers, self.buffer, port=stream_port if port is None else port,
                                                    on_change=on_change, salt=salt)
         self.port = self.receiver.port
-        import audio_playback_mac
-        self._playback = audio_playback_mac
+        if sys.platform == "win32":
+            import audio_playback_win as playback
+        else:
+            import audio_playback_mac as playback
+        self._playback = playback
         self.device = device
         try:
-            self.output = audio_playback_mac.open_output(self.buffer, device)
-            self.output_name = audio_playback_mac.output_name(device)
+            self.output = playback.open_output(self.buffer, device)
+            self.output_name = playback.output_name(device)
         except Exception:
             self.receiver.stop()
             raise

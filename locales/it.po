@@ -4008,13 +4008,17 @@ msgstr "Riproduci qui l'audio degli altri computer"
 msgid "Buffer"
 msgstr "Buffer"
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Microphone is off"
 msgstr "Microfono disattivato"
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Use other machines' microphone here"
 msgstr "Usa qui il microfono degli altri computer"
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+msgid "Not sending the microphone"
+msgstr "Microfono non inviato"
 
 #: mac_app/sound_menu.py
 msgid "No paired machine can send sound"
@@ -4028,20 +4032,35 @@ msgstr "Installa BlackHole 2ch, poi disattiva e riattiva questa opzione"
 msgid "Starting…"
 msgstr "Avvio…"
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Microphone waiting, into {output}"
 msgstr "Microfono in attesa, verso {output}"
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Waiting for {name}…"
+msgstr "In attesa di {name}…"
 
 #: mac_app/sound_menu.py
 #, python-brace-format
 msgid "Listening on {output}"
 msgstr "In ascolto su {output}"
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Microphone from {name}, into {output}"
 msgstr "Microfono da {name}, verso {output}"
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Microphone going to {name}"
+msgstr "Microfono inviato a {name}"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Send this Mac's microphone to {name}"
+msgstr "Invia il microfono di questo Mac a {name}"
 
 #: mac_app/sound_menu.py
 #, python-brace-format
@@ -5583,16 +5602,16 @@ msgid "Cannot switch — the desktop did not let Beamer send input to {name}"
 msgstr "Impossibile passare: il desktop non ha consentito a Beamer di inviare input a {name}"
 
 #: win_app/sound_menu_win.py
+msgid "Install VB-CABLE, then turn this off and on"
+msgstr "Installa VB-CABLE, poi disattiva e riattiva questa opzione"
+
+#: win_app/sound_menu_win.py
 msgid "Not sending sound"
 msgstr "Audio non inviato"
 
 #: win_app/sound_menu_win.py
 msgid "Mute this PC while its sound plays elsewhere"
 msgstr "Disattiva l'audio di questo PC mentre suona altrove"
-
-#: win_app/sound_menu_win.py
-msgid "Not sending the microphone"
-msgstr "Microfono non inviato"
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
@@ -5614,11 +5633,6 @@ msgstr "Quel computer non è più abbinato a questo PC."
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
-msgid "Waiting for {name}…"
-msgstr "In attesa di {name}…"
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
 msgid "Capturing {output}"
 msgstr "Acquisizione da {output}"
 
@@ -5636,11 +5650,6 @@ msgstr "Su {name}, attiva Usa qui il microfono degli altri computer nel menu Aud
 #, python-brace-format
 msgid "Turn on Sound in Beamer's menu on {name}."
 msgstr "Su {name}, attiva Audio nel menu di Beamer."
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
-msgid "Microphone going to {name}"
-msgstr "Microfono inviato a {name}"
 
 #: win_app/widgets.py
 msgid "Response time: no fresh measurement"

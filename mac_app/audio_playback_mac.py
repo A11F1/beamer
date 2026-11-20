@@ -16,11 +16,12 @@ from core import audio_stream
 def open_output(buffer, device=None):
     """An output stream that plays `buffer`, started; close it with `.stop()` and `.close()`.
 
-    PortAudio reads the Mac's devices once, when it starts, and never again. After an output comes
+    PortAudio reads the Mac's devices once, when it starts, and never again: after an output comes
     or goes (headphones, a display, waking from sleep) its list is stale, and opening fails with an
-    internal error (-9986) until it starts afresh. So a failure restarts it and tries once more,
-    which closes every other stream this process has open: a caller with two (the Sound menu's
-    sound and microphone) refreshes once itself, with both closed, before opening either."""
+    internal error (-9986). Restarting it (`refresh_devices`) frees every stream it has open, and
+    touching a freed stream can crash, so this never restarts it itself: its callers close every
+    stream they hold, restart PortAudio once, and open them again (the Sound menu's
+    `_reopen_streams`)."""
     import sounddevice
 
     def callback(outdata, frames, timing, status):
@@ -39,11 +40,7 @@ def open_output(buffer, device=None):
         stream.start()
         return stream
 
-    try:
-        return started()
-    except sounddevice.PortAudioError:
-        refresh_devices()
-        return started()
+    return started()
 
 
 def refresh_devices():

@@ -19,7 +19,7 @@ assert ".app/" in bridge.__file__, bridge.__file__
 import sound_menu, sounddevice
 assert ".app/" in sounddevice._libname, sounddevice._libname
 # Following the default output reads it straight from Core Audio through ctypes.
-import audio_playback_mac
+import audio_playback_mac, audio_capture_mac
 audio_playback_mac.default_output_id()
 
 # The link's X25519 and ChaCha20-Poly1305 and pairing's X25519 are all libsodium, reached through
