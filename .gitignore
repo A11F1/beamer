@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+# The audio experiment's environment (docs/audio-experiment.md).
+.venv-audio/
 
 .DS_Store
 

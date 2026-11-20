@@ -23,31 +23,71 @@ away when that lands.
 
 ## Set it up
 
-You need the repository on both machines, and Python 3.9 or later.
+You need the repository on both machines, and Python 3.9 or later. Set up each machine once.
 
-On the Mac:
+On the Mac, in Terminal, from the repository folder:
 
 ```sh
 python3 -m venv .venv-audio
 .venv-audio/bin/pip install -r tools/requirements-audio.txt
-.venv-audio/bin/python tools/audio_share.py receive
 ```
 
-The first time, macOS may ask whether Python may accept incoming network connections. Allow it.
-
-On the PC, in PowerShell:
+On the PC, in Command Prompt or PowerShell, from the repository folder:
 
 ```powershell
 py -m venv .venv-audio
 .venv-audio\Scripts\pip install -r tools\requirements-audio.txt
+```
+
+## Beamer Audio, the companion apps
+
+The easiest way to use it. Start one on each machine:
+
+- **Mac:** double-click `tools/Beamer Audio.command`. A ♪ appears in the menu bar. The first time,
+  macOS may ask whether Python may accept incoming network connections. Allow it.
+- **PC:** double-click `tools\Beamer Audio.bat`. The Beamer Audio window opens, with an icon in the
+  tray.
+
+On the PC, choose your Mac under **Play on**. Play something, and it comes out of the Mac within a
+second.
+
+| On the PC's window | Does |
+|---|---|
+| Play on | The Mac to send to, or Off |
+| Capture | The output to capture: the default, a particular device, or a test tone |
+| Mute this PC while its sound plays elsewhere | See [The PC's own speakers](#the-pcs-own-speakers) |
+| The status line | Green: playing on the Mac. Amber: waiting for it. Red: something to fix |
+
+Closing the window leaves Beamer Audio running in the tray, still sending. Its tray menu can stop
+and start sending, and quit.
+
+| In the Mac's ♪ menu | Does |
+|---|---|
+| The first lines | What is playing, and the buffer's lost, late and gap counts |
+| Receive sound | Turns receiving on and off |
+| Play sound from | Which paired machines may play here |
+| Output | The speakers to play on |
+| Buffer | How much is kept in hand: 40 ms on a wire, more on Wi-Fi |
+
+The menu-bar title shows ♪ ● while playing, ♪ while listening and ♪ ○ when off or stuck. Each app
+keeps its choices in `audio.json` beside Beamer's `settings.json`, and never changes Beamer's own
+settings. If one fails to start, the reason is in `audio.log` in the same folder.
+
+## The command line
+
+The same, without the apps. The Mac's menu and this command can't run at once: both listen on UDP
+port 24823.
+
+```sh
+.venv-audio/bin/python tools/audio_share.py receive
+```
+
+```powershell
 .venv-audio\Scripts\python tools\audio_share.py send
 ```
 
-The sender picks the one Mac paired with the PC, at the address Beamer saved for it. Play something
-on the PC and it comes out of the Mac within a second. Ctrl+C stops either end, and the other end
-recovers on its own when it starts again.
-
-## Options
+The sender picks the one Mac paired with the PC, at the address Beamer saved for it. Ctrl+C stops
+either end, and the other end recovers on its own when it starts again.
 
 | Command | Option | Use |
 |---|---|---|

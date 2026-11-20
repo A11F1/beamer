@@ -2,8 +2,12 @@
 PyNaCl>=1.6
 # Mac: playback. The macOS wheel carries its own PortAudio.
 sounddevice>=0.5; sys_platform == "darwin"
+# Mac: the Beamer Audio menu-bar app (tools/audio_menu_mac.py).
+rumps==0.4.0; sys_platform == "darwin"
 # Windows: WASAPI loopback capture. Older releases of soundcard break on numpy 2.
 soundcard>=0.4.3; sys_platform == "win32"
 numpy>=1.26; sys_platform == "win32"
 # Windows: mutes the PC's own output while it streams (win_app/audio_local_mute.py).
 pycaw>=20240316; sys_platform == "win32"
+# Windows: the Beamer Audio window and tray icon (tools/audio_window_win.py).
+PySide6-Essentials>=6.5; sys_platform == "win32"
