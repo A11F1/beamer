@@ -23,6 +23,7 @@ import time
 
 import rumps
 
+import audio_capture_mac
 import audio_playback_mac
 from core import audio_service, audio_stream
 from core.audio_service import PairingError
@@ -34,12 +35,17 @@ BUFFERS = (
     (120, N_("120 ms, for busy Wi-Fi")),
     (200, N_("200 ms, for weak Wi-Fi")),
 )
-DEFAULTS = {"receive": True, "mic": True, "latency_ms": 40, "mic_to": ""}
+DEFAULTS = {"receive": True, "mic": True, "latency_ms": 40, "mic_to": "", "sound_to": "",
+            # The output this Mac had before it was switched to BlackHole 16ch to send its sound,
+            # kept until it is put back, so a crash or a quit never leaves the Mac silent.
+            "restore_output": ""}
 # How often the pairing is read again, and a receiver that could not start is tried again.
 RECHECK_SECONDS = 5.0
 ADDRESS_IN_USE = 48
 # The output the microphone stream plays into: BlackHole's two-channel device.
-MIC_DEVICE_WORD = "BlackHole"
+MIC_DEVICE_WORD = "BlackHole 2ch"
+# A Mac's own speakers, the fallback when nothing better is known: a device name, never shown.
+BUILT_IN_OUTPUT_WORD = "Speakers"
 SOUND, MIC = "sound", "mic"
 
 
@@ -68,10 +74,10 @@ class SoundMenu:
         self._checked = 0.0
         # The default output the sound was opened on, to follow it when it changes.
         self._output_id = None
-        # This Mac's microphone, sent to a PC, and what it last said.
-        self.mic_sender = None
-        self.mic_send_problem = None
-        self._send_items = {}
+        # What this Mac sends to a PC, its microphone and its sound, and what each last said.
+        self.senders = {MIC: None, SOUND: None}
+        self.send_problems = {MIC: None, SOUND: None}
+        self._send_items = {MIC: {}, SOUND: {}}
         self._send_shown = None
 
         self.item = rumps.MenuItem(tr("Sound"))
@@ -87,9 +93,14 @@ class SoundMenu:
         self.mic_status_item = rumps.MenuItem(tr("Microphone is off"))
         self.mic_item = rumps.MenuItem(tr("Use other machines' microphone here"), callback=self._toggle_mic)
         self.mic_send_status_item = rumps.MenuItem(tr("Not sending the microphone"))
+        self.sound_send_status_item = rumps.MenuItem(tr("Not sending this Mac's sound"))
         for child in (self.status_item, self.detail_item, None, self.receive_item, self.buffer_menu, None,
-                      self.mic_status_item, self.mic_item, None, self.mic_send_status_item):
+                      self.mic_status_item, self.mic_item, None, self.sound_send_status_item):
             self.item.add(rumps.separator if child is None else child)
+        self._sound_send_anchor = self.sound_send_status_item.title
+        self.item.add(rumps.separator)
+        self.item.add(self.mic_send_status_item)
+        self._mic_send_anchor = self.mic_send_status_item.title
 
         self._read_peers()
         self._apply()
@@ -109,20 +120,23 @@ class SoundMenu:
         return changed
 
     def _send_targets(self):
-        """One item per PC to send this Mac's microphone to, after the line that says how it goes."""
+        """One item per PC to send this Mac's sound to, and one to send its microphone to, each
+        after the line that says how it goes."""
         targets = [entry for entry in self.peers if entry.get("platform") != "macos"]
         shown = [(audio_service.peer_key(entry), audio_service.label(entry, self.peers)) for entry in targets]
         if shown == self._send_shown:
             return
         self._send_shown = shown
-        for item in self._send_items.values():
-            del self.item[item.title]
-        self._send_items = {}
-        for key, name in shown:
-            item = rumps.MenuItem(tr("Send this Mac's microphone to {name}").format(name=name),
-                                  callback=lambda _sender, key=key: self._toggle_send(key))
-            self.item.add(item)
-            self._send_items[key] = item
+        for kind, words, anchor in ((SOUND, tr("Send this Mac's sound to {name}"), self._sound_send_anchor),
+                                    (MIC, tr("Send this Mac's microphone to {name}"), self._mic_send_anchor)):
+            for item in self._send_items[kind].values():
+                del self.item[item.title]
+            self._send_items[kind] = {}
+            for key, name in reversed(shown):
+                item = rumps.MenuItem(words.format(name=name),
+                                      callback=lambda _sender, key=key, kind=kind: self._toggle_send(kind, key))
+                self.item.insert_after(anchor, item)
+                self._send_items[kind][key] = item
 
     def _wanted(self, channel):
         return bool(self.prefs["receive" if channel.kind == SOUND else "mic"]) and bool(self.peers)
@@ -132,10 +146,14 @@ class SoundMenu:
         for channel in self.channels.values():
             self._stop(channel)
             channel.problem, channel.missing_device = None, False
-        self._stop_sending()
-        sending = self._send_target()
-        if not any(self._wanted(channel) for channel in self.channels.values()) and sending is None:
+        for kind in self.senders:
+            self._stop_sending(kind)
+        self._restore_output()
+        targets = {kind: self._send_target(kind) for kind in self.senders}
+        if not any(self._wanted(channel) for channel in self.channels.values()) and not any(targets.values()):
             return
+        if targets[SOUND] is not None and not self._switch_output():
+            targets[SOUND] = None
         # Nothing is open now, so PortAudio may start afresh and see the devices as they are.
         try:
             audio_playback_mac.refresh_devices()
@@ -145,36 +163,75 @@ class SoundMenu:
         for channel in self.channels.values():
             if self._wanted(channel):
                 self._start(channel)
-        if sending is not None:
-            self._start_sending(sending)
+        for kind, peer in targets.items():
+            if peer is not None:
+                self._start_sending(kind, peer)
 
-    def _send_target(self):
-        key = self.prefs["mic_to"]
+    def _send_target(self, kind):
+        key = self.prefs["sound_to" if kind == SOUND else "mic_to"]
         return audio_service.find_peer(self.peers, key) if key else None
 
-    def _start_sending(self, peer):
+    # Sending this Mac's sound: its output goes to BlackHole 16ch, and what reaches it is captured.
+
+    def _switch_output(self):
+        """Makes BlackHole 16ch this Mac's output, remembering the one it had. False if it is not
+        installed, which the sound's line then says."""
+        target = audio_capture_mac.SOUND_DEVICE
+        current = audio_playback_mac.default_output_name()
+        if current != target and not audio_playback_mac.set_default_output(target):
+            self.send_problems[SOUND] = tr("Install BlackHole 16ch, then choose this again")
+            return False
+        if current and current != target:
+            self.prefs.set(restore_output=current)
+        self.logger.info("audio: this Mac's output is %s while its sound plays elsewhere", target)
+        return True
+
+    def _restore_output(self):
+        """Puts back the output this Mac had before its sound went elsewhere, if it still has
+        BlackHole 16ch; a choice made since is left alone."""
+        previous = self.prefs["restore_output"]
+        if not previous:
+            return
+        if audio_playback_mac.default_output_name() == audio_capture_mac.SOUND_DEVICE:
+            if audio_playback_mac.set_default_output(previous):
+                self.logger.info("audio: this Mac's output is %s again", previous)
+            else:
+                self.logger.warning("audio: could not put back %s", previous)
+        self.prefs.set(restore_output="")
+
+    def _real_output(self):
+        """Where the sound from other machines plays: the default output, unless that is a
+        BlackHole, when it is the output this Mac had before, so it is never sent back."""
+        current = audio_playback_mac.default_output_name()
+        if not current or "blackhole" not in current.casefold():
+            return None
+        return self.prefs["restore_output"] or audio_playback_mac.find_output(BUILT_IN_OUTPUT_WORD)
+
+    def _start_sending(self, kind, peer):
+        source = audio_service.SOURCE_LOOPBACK if kind == SOUND else audio_service.SOURCE_MIC
         try:
-            self.mic_sender = audio_service.SendSession(peer, self.peers, source=audio_service.SOURCE_MIC).start()
-            self.logger.info("audio: sending %s to %s at %s", self.mic_sender.what, self.mic_sender.name,
-                             self.mic_sender.host)
+            sender = audio_service.SendSession(peer, self.peers, source=source).start()
+            self.senders[kind] = sender
+            self.logger.info("audio: sending %s to %s at %s", sender.what, sender.name, sender.host)
         except Exception as error:
             # Not tried again on its own: each try would interrupt the sound. Choosing it again does.
-            self.mic_send_problem = str(error)
-            self.mic_sender = None
-            self.logger.warning("audio: could not send the microphone: %s", error)
+            self.send_problems[kind] = str(error)
+            self.logger.warning("audio: could not send %s: %s", kind, error)
+            if kind == SOUND:
+                self._restore_output()
 
-    def _stop_sending(self):
-        sender, self.mic_sender = self.mic_sender, None
-        self.mic_send_problem = None
+    def _stop_sending(self, kind):
+        sender, self.senders[kind] = self.senders[kind], None
+        self.send_problems[kind] = None
         if sender:
             try:
                 sender.stop()
             except Exception:
-                self.logger.exception("audio: the microphone did not stop cleanly")
+                self.logger.exception("audio: sending %s did not stop cleanly", kind)
 
     def _start(self, channel):
         names = {entry["token"]: audio_service.label(entry, self.peers) for entry in self.peers}
-        device = None
+        device = self._real_output() if channel.kind == SOUND else None
         if channel.kind == MIC:
             device = audio_playback_mac.find_output(MIC_DEVICE_WORD)
             if device is None:
@@ -217,8 +274,9 @@ class SoundMenu:
         running = [channel for channel in self.channels.values() if channel.session]
         for channel in running:
             channel.session.close_output()
-        if self.mic_sender:
-            self.mic_sender.close_stream()
+        for sender in self.senders.values():
+            if sender:
+                sender.close_stream()
         try:
             audio_playback_mac.refresh_devices()
         except Exception as error:
@@ -226,19 +284,23 @@ class SoundMenu:
         self._output_id = audio_playback_mac.default_output_id()
         for channel in running:
             try:
+                if channel.kind == SOUND:
+                    channel.session.device = self._real_output()
                 channel.session.open_output()
                 self.logger.info("audio: %s reopened (%s), now on %s", channel.kind, why, channel.session.output_name)
             except Exception as error:
                 self.logger.warning("audio: %s could not open its output again: %s", channel.kind, error)
                 # The next recheck starts it afresh.
                 self._stop(channel)
-        if self.mic_sender:
+        for kind, sender in self.senders.items():
+            if not sender:
+                continue
             try:
-                self.mic_sender.open_stream()
+                sender.open_stream()
             except Exception as error:
-                self.logger.warning("audio: the microphone could not open again: %s", error)
-                self._stop_sending()
-                self.mic_send_problem = tr("Sound could not start: {error}").format(error=error)
+                self.logger.warning("audio: sending %s could not open again: %s", kind, error)
+                self._stop_sending(kind)
+                self.send_problems[kind] = tr("Sound could not start: {error}").format(error=error)
 
     # Choices ---------------------------------------------------------------------------------
 
@@ -250,8 +312,9 @@ class SoundMenu:
     def _toggle(self, _sender):
         self._set(receive=not self.prefs["receive"])
 
-    def _toggle_send(self, key):
-        self._set(mic_to="" if self.prefs["mic_to"] == key else key)
+    def _toggle_send(self, kind, key):
+        name = "sound_to" if kind == SOUND else "mic_to"
+        self._set(**{name: "" if self.prefs[name] == key else key})
 
     def _toggle_mic(self, _sender):
         # Turning it on also looks for BlackHole again, so installing it needs no restart.
@@ -271,7 +334,7 @@ class SoundMenu:
                 self._apply()
             elif (any(channel.session and not (channel.session.output and channel.session.output.active)
                       for channel in self.channels.values())
-                  or (self.mic_sender and not (self.mic_sender.input and self.mic_sender.input.active))):
+                  or any(sender and not (sender.input and sender.input.active) for sender in self.senders.values())):
                 # A stream stopped under it: its device went away, or Core Audio reset.
                 self._reopen_streams("stream-stopped")
         self._follow_default_output()
@@ -339,17 +402,21 @@ class SoundMenu:
             choice.state = int(self.prefs["latency_ms"] == value)
         self.mic_status_item.title = self._mic_status()
         self.mic_item.state = int(bool(self.prefs["mic"]))
-        self.mic_send_status_item.title = self._mic_send_status()
-        for key, item in self._send_items.items():
-            item.state = int(key == self.prefs["mic_to"])
+        self.mic_send_status_item.title = self._send_status(MIC)
+        self.sound_send_status_item.title = self._send_status(SOUND)
+        for kind, chosen in ((MIC, self.prefs["mic_to"]), (SOUND, self.prefs["sound_to"])):
+            for key, item in self._send_items[kind].items():
+                item.state = int(key == chosen)
 
-    def _mic_send_status(self):
-        if self.mic_send_problem:
-            return self.mic_send_problem
-        sender = self.mic_sender
+    def _send_status(self, kind):
+        if self.send_problems[kind]:
+            return self.send_problems[kind]
+        sender = self.senders[kind]
         if not sender:
-            return tr("Not sending the microphone")
+            return tr("Not sending this Mac's sound") if kind == SOUND else tr("Not sending the microphone")
         if sender.streaming:
+            if kind == SOUND:
+                return tr("Playing on {name}").format(name=sender.name)
             return tr("Microphone going to {name}").format(name=sender.name)
         return tr("Waiting for {name}…").format(name=sender.name)
 
@@ -359,6 +426,8 @@ class SoundMenu:
         return self.channels[SOUND].session
 
     def stop(self):
-        self._stop_sending()
+        for kind in self.senders:
+            self._stop_sending(kind)
+        self._restore_output()
         for channel in self.channels.values():
             self._stop(channel)

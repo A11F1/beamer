@@ -46,18 +46,30 @@ def mono_to_stereo(pcm):
     return bytes(out)
 
 
-def open_input(deliver, device):
-    """A started input stream calling `deliver(pcm)` with each block, as stereo; close it with
-    `.stop()` and `.close()`. Opened only by a caller that has just started PortAudio afresh, as the
-    Sound menu does, so it sees the microphones as they are."""
+# What this Mac plays, while it plays on a PC: its output is switched to this device, and what
+# reaches it is captured from its input side. Kept apart from BlackHole 2ch, which carries a PC's
+# microphone in, so the two never mix.
+SOUND_DEVICE = "BlackHole 16ch"
+
+
+def find_input(name):
+    """The input called exactly `name`, or None."""
+    return next((device["name"] for device in _inputs() if device["name"] == name), None)
+
+
+def open_input(deliver, device, stereo=False):
+    """A started input stream calling `deliver(pcm)` with each block, as stereo: a microphone's one
+    channel on both sides, or with `stereo` the device's first two channels as they are. Close it
+    with `.stop()` and `.close()`. Opened only by a caller that has just started PortAudio afresh,
+    as the Sound menu does, so it sees the devices as they are."""
     import sounddevice
 
     def callback(indata, frames, timing, status):
-        deliver(mono_to_stereo(bytes(indata)))
+        deliver(bytes(indata) if stereo else mono_to_stereo(bytes(indata)))
 
     stream = sounddevice.RawInputStream(
         samplerate=audio_stream.SAMPLE_RATE,
-        channels=1,
+        channels=audio_stream.CHANNELS if stereo else 1,
         dtype="int16",
         blocksize=audio_stream.PACKET_FRAMES,
         latency="low",

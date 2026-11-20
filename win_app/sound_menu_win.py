@@ -26,7 +26,7 @@ from core.i18n import tr
 
 LOGGER = logging.getLogger("Beamer")
 
-DEFAULTS = {"send_to": "", "mute_local": True, "mic_to": "", "mic_in": True}
+DEFAULTS = {"send_to": "", "mute_local": True, "mic_to": "", "mic_in": True, "sound_in": True}
 TICK_MS = 250
 RECHECK_SECONDS = 5.0
 CLOSE_SECONDS = 4.0
@@ -147,14 +147,16 @@ class Engine:
         self._worker.shutdown(wait=False)
 
 
-class MicReceiver:
-    """Plays a paired Mac's microphone into VB-CABLE, on a COM worker of its own, so Windows apps
-    can record it from CABLE Output. Every method returns at once; `snapshot()` says how it is."""
+class Receiver:
+    """Plays what a paired Mac sends, on a COM worker of its own: its sound on this PC's default
+    output, or (`mic`) its microphone into VB-CABLE, so Windows apps can record it from CABLE
+    Output. Every method returns at once; `snapshot()` says how it is."""
 
-    def __init__(self, settings_path):
+    def __init__(self, settings_path, mic=False):
         self.settings_path = settings_path
-        self._worker = concurrent.futures.ThreadPoolExecutor(max_workers=1, initializer=_com_ready,
-                                                             thread_name_prefix="audio-mic-in")
+        self.mic = mic
+        self._worker = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, initializer=_com_ready, thread_name_prefix="audio-mic-in" if mic else "audio-sound-in")
         self._lock = threading.Lock()
         self._session = None
         self._problem = None
@@ -181,17 +183,21 @@ class MicReceiver:
         if not on:
             return
         try:
-            import audio_playback_win
-            cable = audio_playback_win.find_output(audio_playback_win.CABLE_WORD)
-            if cable is None:
-                with self._lock:
-                    self._missing_cable = True
-                return
+            device = None
+            if self.mic:
+                import audio_playback_win
+                device = audio_playback_win.find_output(audio_playback_win.CABLE_WORD)
+                if device is None:
+                    with self._lock:
+                        self._missing_cable = True
+                    return
             peers = audio_service.paired_peers(self.settings_path)
             names = {entry["token"]: audio_service.label(entry, peers) for entry in peers}
-            session = audio_service.ReceiveSession(names, device=cable, stream=audio_stream.MIC,
+            session = audio_service.ReceiveSession(names, device=device,
+                                                   stream=audio_stream.MIC if self.mic else audio_stream.SOUND,
                                                    on_change=self._changed)
-            LOGGER.info("audio: mic listening on UDP %s, into %s", session.port, cable)
+            LOGGER.info("audio: %s listening on UDP %s, into %s", "mic" if self.mic else "sound",
+                        session.port, session.output_name)
         except Exception as error:
             LOGGER.warning("audio: could not receive a microphone: %s", error)
             with self._lock:
@@ -233,11 +239,15 @@ class MicReceiver:
         if problem:
             return problem
         if not self.wanted:
-            return tr("Microphone is off")
+            return tr("Microphone is off") if self.mic else tr("Sound is off")
         if missing:
             return tr("Install VB-CABLE, then turn this off and on")
         if not session:
             return tr("Starting…")
+        if not self.mic:
+            if playing:
+                return tr("Playing sound from {name}").format(name=playing)
+            return tr("Listening on {output}").format(output=session.output_name)
         if playing:
             return tr("Microphone from {name}, into {output}").format(name=playing, output=session.output_name)
         return tr("Microphone waiting, into {output}").format(output=session.output_name)
@@ -261,7 +271,8 @@ class SoundMenu(QObject):
         self.prefs = audio_service.Preferences(audio_service.preferences_path(settings_path), DEFAULTS)
         self.engine = Engine(settings_path)
         self.mic_engine = Engine(settings_path, source=audio_service.SOURCE_MIC)
-        self.mic_receiver = MicReceiver(settings_path)
+        self.mic_receiver = Receiver(settings_path, mic=True)
+        self.sound_receiver = Receiver(settings_path)
         self.peers = []
         self._peer_actions = {}
         self._mic_actions = {}
@@ -291,6 +302,13 @@ class SoundMenu(QObject):
         self._mic_end = self.menu.addSeparator()
         self._mic_end.setVisible(False)
         self.menu.addSeparator()
+        self.sound_in_status_action = self.menu.addAction(tr("Sound is off"))
+        self.sound_in_status_action.setEnabled(False)
+        self.sound_in_action = self.menu.addAction(tr("Play other machines' sound here"))
+        self.sound_in_action.setCheckable(True)
+        self.sound_in_action.setChecked(bool(self.prefs["sound_in"]))
+        self.sound_in_action.triggered.connect(self._sound_in_chosen)
+        self.menu.addSeparator()
         self.mic_in_status_action = self.menu.addAction(tr("Microphone is off"))
         self.mic_in_status_action.setEnabled(False)
         self.mic_in_action = self.menu.addAction(tr("Use other machines' microphone here"))
@@ -301,6 +319,7 @@ class SoundMenu(QObject):
         self._read_peers()
         self._apply()
         self.mic_receiver.apply(bool(self.prefs["mic_in"]))
+        self.sound_receiver.apply(bool(self.prefs["sound_in"]))
         self._timer = QTimer(self)
         self._timer.setInterval(TICK_MS)
         self._timer.timeout.connect(self._tick)
@@ -354,6 +373,11 @@ class SoundMenu(QObject):
         self._apply()
         self.refresh()
 
+    def _sound_in_chosen(self, on):
+        self.prefs.set(sound_in=bool(on))
+        self.sound_receiver.apply(bool(on))
+        self.refresh()
+
     def _mic_in_chosen(self, on):
         # Turning it on also looks for VB-CABLE again, so installing it needs no restart.
         self.prefs.set(mic_in=bool(on))
@@ -385,11 +409,15 @@ class SoundMenu(QObject):
             if [entry["token"] for entry in self.peers] != before:
                 self._apply()
                 self.mic_receiver.apply(bool(self.prefs["mic_in"]))
-            elif self.mic_receiver.failed:
-                self.mic_receiver.apply(True)
+                self.sound_receiver.apply(bool(self.prefs["sound_in"]))
+            else:
+                for receiver in (self.mic_receiver, self.sound_receiver):
+                    if receiver.failed:
+                        receiver.apply(True)
         self.engine.tick()
         self.mic_engine.tick()
         self.mic_receiver.tick()
+        self.sound_receiver.tick()
         self.refresh()
 
     def refresh(self):
@@ -406,6 +434,7 @@ class SoundMenu(QObject):
         self.mic_detail_action.setText(detail)
         self.mic_detail_action.setVisible(bool(detail))
         self.mic_in_status_action.setText(self.mic_receiver.snapshot())
+        self.sound_in_status_action.setText(self.sound_receiver.snapshot())
 
     def close(self):
         """Stops sending and unmutes this PC; Beamer calls it on the way out."""
@@ -416,3 +445,4 @@ class SoundMenu(QObject):
         self.engine.close()
         self.mic_engine.close()
         self.mic_receiver.close()
+        self.sound_receiver.close()

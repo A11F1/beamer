@@ -91,3 +91,66 @@ def default_output_id():
     except OSError:
         return None
     return device.value if status == 0 else None
+
+
+_core_foundation = None
+_UTF8 = 0x08000100
+
+
+def _audio():
+    global _core_audio, _core_foundation
+    if _core_audio is None:
+        _core_audio = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreAudio.framework/CoreAudio")
+    if _core_foundation is None:
+        _core_foundation = ctypes.cdll.LoadLibrary(
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+        _core_foundation.CFStringGetCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_uint32]
+        _core_foundation.CFRelease.argtypes = [ctypes.c_void_p]
+    return _core_audio, _core_foundation
+
+
+def _device_name(device_id):
+    core_audio, core_foundation = _audio()
+    address = _PropertyAddress(_code("lnam"), _code("glob"), 0)
+    ref, size = ctypes.c_void_p(), ctypes.c_uint32(ctypes.sizeof(ctypes.c_void_p))
+    if core_audio.AudioObjectGetPropertyData(device_id, ctypes.byref(address), 0, None,
+                                             ctypes.byref(size), ctypes.byref(ref)) != 0 or not ref.value:
+        return None
+    try:
+        text = ctypes.create_string_buffer(512)
+        if not core_foundation.CFStringGetCString(ref, text, len(text), _UTF8):
+            return None
+        return text.value.decode("utf-8")
+    finally:
+        core_foundation.CFRelease(ref)
+
+
+def devices():
+    """Every audio device Core Audio knows, as (id, name)."""
+    core_audio, _ = _audio()
+    address = _PropertyAddress(_code("dev#"), _code("glob"), 0)
+    size = ctypes.c_uint32(0)
+    if core_audio.AudioObjectGetPropertyDataSize(1, ctypes.byref(address), 0, None, ctypes.byref(size)) != 0:
+        return []
+    ids = (ctypes.c_uint32 * (size.value // ctypes.sizeof(ctypes.c_uint32)))()
+    if core_audio.AudioObjectGetPropertyData(1, ctypes.byref(address), 0, None, ctypes.byref(size), ids) != 0:
+        return []
+    return [(device_id, _device_name(device_id)) for device_id in ids]
+
+
+def default_output_name():
+    current = default_output_id()
+    return _device_name(current) if current is not None else None
+
+
+def set_default_output(name):
+    """Makes the device called `name` the Mac's default output, as choosing it in Control Centre
+    does. True when it did."""
+    core_audio, _ = _audio()
+    match = next((device_id for device_id, device_name in devices() if device_name == name), None)
+    if match is None:
+        return False
+    address = _PropertyAddress(_code("dOut"), _code("glob"), 0)
+    value = ctypes.c_uint32(match)
+    return core_audio.AudioObjectSetPropertyData(
+        1, ctypes.byref(address), 0, None, ctypes.sizeof(value), ctypes.byref(value)) == 0

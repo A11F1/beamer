@@ -1,15 +1,17 @@
 # Audio sharing: a local experiment
 
-Plays what a Windows PC is playing on a paired Mac's speakers, and sends the PC's microphone to the
-Mac's apps, from a **Sound** menu in Beamer itself. A proof of concept kept in this fork: it is in the builds you make from this branch, not in
+Plays one machine's sound on the other's speakers, and sends one machine's microphone to the other's
+apps, between a Windows PC and a paired Mac, either way round, from a **Sound** menu in Beamer
+itself. A proof of concept kept in this fork: it is in the builds you make from this branch, not in
 any release, and it changes nothing in Beamer's link, settings or wire version 6. Upstream is
 designing audio of its own ([kalkman-code/beamer#23](https://github.com/kalkman-code/beamer/issues/23)),
 so expect to throw this away when that lands.
 
 ## What it does
 
-- **Two fixed routes.** The PC's sound goes to the Mac's speakers, and the PC's microphone to the
-  Mac's apps, whichever machine has the keyboard and mouse.
+- **Four routes, each switched on its own.** The PC's sound to the Mac's speakers, the Mac's sound
+  to the PC's speakers, the PC's microphone to the Mac's apps, and the Mac's microphone to the PC's
+  apps, whichever machine has the keyboard and mouse.
 - **Uses your pairing.** Each end reads the pairing Beamer already has. The Mac answers only
   machines it is paired with. There is nothing new to pair.
 - **Encrypted.** Every packet is ChaCha20-Poly1305, keyed afresh for each stream from the pair's
@@ -31,6 +33,8 @@ so expect to throw this away when that lands.
 | Play this PC's sound on *Mac* | Starts sending to that Mac; choose it again to stop |
 | Mute this PC while its sound plays elsewhere | See [The PC's own speakers](#the-pcs-own-speakers) |
 | Send this PC's microphone to *Mac* | Sends the default microphone, such as a headset's; choose it again to stop |
+| Play other machines' sound here | Plays a Mac's sound on this PC's default output. On by default |
+| Use other machines' microphone here | Plays a Mac's microphone into VB-CABLE. On by default |
 
 | On the Mac: Beamer's menu-bar menu, **Sound** | Does |
 |---|---|
@@ -38,7 +42,9 @@ so expect to throw this away when that lands.
 | Play other machines' sound here | Turns receiving on and off. On by default |
 | Buffer | How much is kept in hand: 40 ms on a wire, more on Wi-Fi |
 | The microphone line | Whose microphone is arriving, and where it goes |
-| Use other machines' microphone here | Plays a PC's microphone into BlackHole. On by default |
+| Use other machines' microphone here | Plays a PC's microphone into BlackHole 2ch. On by default |
+| Send this Mac's sound to *PC* | Plays what this Mac plays on the PC instead; choose it again to stop |
+| Send this Mac's microphone to *PC* | Sends this Mac's microphone; macOS asks once whether Beamer may use it |
 
 Every machine paired with the Mac may play there. Both menus remember their choices in
 `audio.json` beside Beamer's `settings.json`, and never change Beamer's own settings. Quitting
@@ -67,6 +73,42 @@ microphone hears the PC's.
 If the Mac hears nothing while the PC says **Microphone going to** the Mac, Windows may be keeping
 the microphone from desktop apps: **Settings → Privacy & security → Microphone → Let desktop apps
 access your microphone**. A microphone sent with nothing listening on the Mac is simply dropped.
+
+## The Mac's sound, on the PC
+
+macOS lets no ordinary app record what the Mac plays, so Beamer borrows a second BlackHole device,
+**BlackHole 16ch**, kept apart from the one that carries the PC's microphone so the two never mix.
+While the Mac's sound goes to the PC, Beamer makes BlackHole 16ch the Mac's output, which also
+silences the Mac's own speakers, and sends what reaches it. It puts the Mac's previous output back
+when you stop, when Beamer quits, and, if Beamer ever stops without doing so, the next time it
+starts. Sound arriving from the PC meanwhile still plays on the Mac's real speakers.
+
+```sh
+brew install --cask blackhole-16ch
+sudo killall coreaudiod      # only if the Mac does not list BlackHole 16ch afterwards
+```
+
+Don't send sound both ways at once: each machine would hear its own sound come back a moment later.
+
+## The Mac's microphone, on the PC
+
+Windows lets no ordinary app add a microphone either, so the Mac's arrives through
+[VB-CABLE](https://vb-audio.com/Cable/), a free virtual cable: Beamer plays into **CABLE Input**,
+and Windows apps choose **CABLE Output** as their microphone. Install it once (it needs a restart of
+Windows), then turn **Use other machines' microphone here** off and on in the PC's Sound menu.
+
+## Let the Mac's streams into the PC
+
+Beamer's firewall rule on the PC covers its link, not these streams. Once, in PowerShell run as
+administrator, with the path to the `Beamer.exe` you run:
+
+```powershell
+New-NetFirewallRule -DisplayName "Beamer audio (experiment)" -Direction Inbound -Protocol UDP `
+  -LocalPort 24823,24824 -Program "C:\path\to\Beamer.exe" -Profile Private -Action Allow
+```
+
+Without it the PC's lines stay on **Listening on** and **Microphone waiting** while the Mac says
+**Waiting for** the PC.
 
 ## Build Beamer locally
 
@@ -172,9 +214,10 @@ menu's second line. It unmutes when streaming stops, or Beamer quits.
 
 ## Known limits
 
-- Windows to Mac only. Capture is WASAPI loopback (`win_app/audio_capture_win.py`); playback is
-  PortAudio (`mac_app/audio_playback_mac.py`), following the Mac's default output.
+- Between a Windows PC and a Mac only. The PC uses WASAPI through soundcard
+  (`win_app/audio_capture_win.py`, `win_app/audio_playback_win.py`); the Mac uses PortAudio
+  (`mac_app/audio_capture_mac.py`, `mac_app/audio_playback_mac.py`), following its default output.
 - No compression and no clock-drift correction, beyond dropping packets.
-- The microphone goes PC to Mac only, and needs BlackHole on the Mac. Nothing follows the keyboard
-  and mouse.
+- Each route needs its virtual device: BlackHole 2ch (PC microphone to Mac), BlackHole 16ch (Mac
+  sound to PC), VB-CABLE (Mac microphone to PC). Nothing follows the keyboard and mouse.
 - The command line sends and receives sound only, not the microphone.

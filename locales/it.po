@@ -3996,11 +3996,11 @@ msgstr "200 ms, per un Wi-Fi debole"
 msgid "Sound"
 msgstr "Audio"
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Sound is off"
 msgstr "Audio disattivato"
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Play other machines' sound here"
 msgstr "Riproduci qui l'audio degli altri computer"
 
@@ -4021,6 +4021,14 @@ msgid "Not sending the microphone"
 msgstr "Microfono non inviato"
 
 #: mac_app/sound_menu.py
+msgid "Not sending this Mac's sound"
+msgstr "Audio di questo Mac non inviato"
+
+#: mac_app/sound_menu.py
+msgid "Install BlackHole 16ch, then choose this again"
+msgstr "Installa BlackHole 16ch, poi scegli di nuovo questa opzione"
+
+#: mac_app/sound_menu.py
 msgid "No paired machine can send sound"
 msgstr "Nessun computer abbinato può inviare audio"
 
@@ -4032,6 +4040,16 @@ msgstr "Installa BlackHole 2ch, poi disattiva e riattiva questa opzione"
 msgid "Starting…"
 msgstr "Avvio…"
 
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Send this Mac's sound to {name}"
+msgstr "Invia l'audio di questo Mac a {name}"
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Send this Mac's microphone to {name}"
+msgstr "Invia il microfono di questo Mac a {name}"
+
 #: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Microphone waiting, into {output}"
@@ -4042,7 +4060,7 @@ msgstr "Microfono in attesa, verso {output}"
 msgid "Waiting for {name}…"
 msgstr "In attesa di {name}…"
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Listening on {output}"
 msgstr "In ascolto su {output}"
@@ -4059,15 +4077,10 @@ msgstr "Microfono inviato a {name}"
 
 #: mac_app/sound_menu.py
 #, python-brace-format
-msgid "Send this Mac's microphone to {name}"
-msgstr "Invia il microfono di questo Mac a {name}"
-
-#: mac_app/sound_menu.py
-#, python-brace-format
 msgid "Sound could not start: {error}"
 msgstr "Impossibile avviare l'audio: {error}"
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Playing sound from {name}"
 msgstr "Audio in riproduzione da {name}"
@@ -4076,6 +4089,11 @@ msgstr "Audio in riproduzione da {name}"
 #, python-brace-format
 msgid "{lost} lost · {late} late · {gaps} gaps"
 msgstr "{lost} persi · {late} in ritardo · {gaps} interruzioni"
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Playing on {name}"
+msgstr "In riproduzione su {name}"
 
 #: mac_app/sound_menu.py
 #, python-brace-format
@@ -5635,11 +5653,6 @@ msgstr "Quel computer non è più abbinato a questo PC."
 #, python-brace-format
 msgid "Capturing {output}"
 msgstr "Acquisizione da {output}"
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
-msgid "Playing on {name}"
-msgstr "In riproduzione su {name}"
 
 #: win_app/sound_menu_win.py
 #, python-brace-format

@@ -203,9 +203,17 @@ class SendSession:
         self._stop = threading.Event()
         self._mute = None
         self.output = None
-        if source == SOURCE_LOOPBACK:
+        if source == SOURCE_LOOPBACK and sys.platform == "darwin":
+            # What this Mac plays reaches BlackHole 16ch once the Sound menu has made it the default
+            # output; captured from there, as a stream its owner opens and closes.
+            import audio_capture_mac
+            self._capture = audio_capture_mac
+            self.output = audio_capture_mac.find_input(audio_capture_mac.SOUND_DEVICE)
+            if self.output is None:
+                raise PairingError("BlackHole 16ch is not installed.")
+        elif source == SOURCE_LOOPBACK:
             if sys.platform != "win32":
-                raise PairingError("Capturing this machine's sound works on Windows only; use the test tone.")
+                raise PairingError("Capturing this machine's sound works on Windows and macOS only; use the test tone.")
             import audio_capture_win
             self._capture = audio_capture_win
             self.output = audio_capture_win.output_name(device)
@@ -259,12 +267,13 @@ class SendSession:
 
     @property
     def _stream_based(self):
-        return self.source == SOURCE_MIC and sys.platform == "darwin"
+        return self.source in (SOURCE_MIC, SOURCE_LOOPBACK) and sys.platform == "darwin"
 
     def open_stream(self):
-        """The Mac's microphone stream, opened; for a session whose capture is a PortAudio stream."""
+        """The Mac's capture stream, opened; for a session whose capture is a PortAudio stream."""
         if self._stream_based and self.input is None:
-            self.input = self._capture.open_input(self.sender.send, self.output)
+            self.input = self._capture.open_input(self.sender.send, self.output,
+                                                  stereo=self.source == SOURCE_LOOPBACK)
 
     def close_stream(self):
         stream, self.input = self.input, None

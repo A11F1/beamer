@@ -3936,11 +3936,11 @@ msgstr ""
 msgid "Sound"
 msgstr ""
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Sound is off"
 msgstr ""
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Play other machines' sound here"
 msgstr ""
 
@@ -3961,6 +3961,14 @@ msgid "Not sending the microphone"
 msgstr ""
 
 #: mac_app/sound_menu.py
+msgid "Not sending this Mac's sound"
+msgstr ""
+
+#: mac_app/sound_menu.py
+msgid "Install BlackHole 16ch, then choose this again"
+msgstr ""
+
+#: mac_app/sound_menu.py
 msgid "No paired machine can send sound"
 msgstr ""
 
@@ -3970,6 +3978,16 @@ msgstr ""
 
 #: mac_app/sound_menu.py win_app/sound_menu_win.py
 msgid "Starting…"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Send this Mac's sound to {name}"
+msgstr ""
+
+#: mac_app/sound_menu.py
+#, python-brace-format
+msgid "Send this Mac's microphone to {name}"
 msgstr ""
 
 #: mac_app/sound_menu.py win_app/sound_menu_win.py
@@ -3982,7 +4000,7 @@ msgstr ""
 msgid "Waiting for {name}…"
 msgstr ""
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Listening on {output}"
 msgstr ""
@@ -3999,15 +4017,10 @@ msgstr ""
 
 #: mac_app/sound_menu.py
 #, python-brace-format
-msgid "Send this Mac's microphone to {name}"
-msgstr ""
-
-#: mac_app/sound_menu.py
-#, python-brace-format
 msgid "Sound could not start: {error}"
 msgstr ""
 
-#: mac_app/sound_menu.py
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Playing sound from {name}"
 msgstr ""
@@ -4015,6 +4028,11 @@ msgstr ""
 #: mac_app/sound_menu.py
 #, python-brace-format
 msgid "{lost} lost · {late} late · {gaps} gaps"
+msgstr ""
+
+#: mac_app/sound_menu.py win_app/sound_menu_win.py
+#, python-brace-format
+msgid "Playing on {name}"
 msgstr ""
 
 #: mac_app/sound_menu.py
@@ -5551,11 +5569,6 @@ msgstr ""
 #: win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Capturing {output}"
-msgstr ""
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
-msgid "Playing on {name}"
 msgstr ""
 
 #: win_app/sound_menu_win.py
