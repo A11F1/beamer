@@ -18,7 +18,9 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+# core/, and the platform modules core.audio_service imports by their top-level names.
+sys.path[:0] = [str(ROOT), str(ROOT / "win_app"), str(ROOT / "mac_app")]
 
 from core import audio_service, audio_stream  # noqa: E402
 from core.audio_service import PairingError  # noqa: E402
@@ -35,7 +37,6 @@ def send(args):
     print(f"Sending {session.what} to {session.name} at {session.host}:{args.port}. Ctrl+C stops.", flush=True)
     keep_alive = None
     if sys.platform == "win32":
-        audio_service._win_app()
         import audio_local_mute
         keep_alive = audio_local_mute.on_console_close(session.restore)
     streaming = False

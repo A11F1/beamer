@@ -1,5 +1,5 @@
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+import importlib.util
 from PyInstaller.utils.win32.versioninfo import (
     FixedFileInfo, StringFileInfo, StringStruct, StringTable,
     VarFileInfo, VarStruct, VSVersionInfo,
@@ -8,6 +8,22 @@ from PyInstaller.utils.win32.versioninfo import (
 
 source_dir = Path(SPECPATH)
 version = (source_dir.parent / "VERSION").read_text(encoding="utf-8").strip()
+
+
+def package_dir(name):
+    """Where an installed package lives, found without importing it; None when it is absent."""
+    spec = importlib.util.find_spec(name)
+    return Path(spec.origin).parent if spec and spec.origin else None
+
+
+# The local audio experiment's Sound menu. soundcard reads its C declarations from .h files at
+# runtime, and pycaw's modules are reached only from a worker thread after start-up.
+soundcard_dir = package_dir("soundcard")
+pycaw_dir = package_dir("pycaw")
+audio_datas = ([(str(path), "soundcard") for path in soundcard_dir.glob("*.h")] if soundcard_dir else [])
+audio_imports = (["soundcard", "numpy", "comtypes"]
+                 + [f"pycaw.{path.stem}" for path in pycaw_dir.glob("*.py") if path.stem != "__init__"]
+                 if soundcard_dir and pycaw_dir else [])
 numeric_version = tuple(int(part) for part in version.split("-", 1)[0].split("."))
 numeric_version += (0,) * (4 - len(numeric_version))
 version_info = VSVersionInfo(
@@ -37,13 +53,11 @@ analysis = Analysis(
            (str(source_dir.parent / "VERSION"), "."),
            (str(source_dir / "identify_layer_shell.py"), ".")]
           + [(str(path), "locales") for path in (source_dir.parent / "locales").glob("*.po")]
-          # The local audio experiment's Sound menu: soundcard reads its C declarations from files.
-          + collect_data_files("soundcard"),
+          + audio_datas,
     # core/effects.py imports its fx_* modules by name, which PyInstaller's analysis cannot see; they are
     # among core_modules. segno is imported inside a try in qr_code.py, so it is named here as well.
     hiddenimports=["nacl", "_cffi_backend", "segno", "win32com.client", "pythoncom", "pywintypes"] + app_modules + core_modules
-                  # The audio experiment imports these on its own worker thread, after start-up.
-                  + ["soundcard", "numpy", "comtypes"] + collect_submodules("pycaw"),
+                  + audio_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

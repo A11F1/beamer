@@ -5583,6 +5583,11 @@ msgstr "In attesa di {name}…"
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
+msgid "Capturing {output}"
+msgstr "Acquisizione da {output}"
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
 msgid "Playing on {name}"
 msgstr "In riproduzione su {name}"
 
@@ -5595,11 +5600,6 @@ msgstr "Su {name}, attiva Audio nel menu di Beamer."
 #, python-brace-format
 msgid "Play this PC's sound on {name}"
 msgstr "Riproduci l'audio di questo PC su {name}"
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
-msgid "Capturing {output}"
-msgstr "Acquisizione da {output}"
 
 #: win_app/widgets.py
 msgid "Response time: no fresh measurement"

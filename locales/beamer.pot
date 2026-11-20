@@ -5500,6 +5500,11 @@ msgstr ""
 
 #: win_app/sound_menu_win.py
 #, python-brace-format
+msgid "Capturing {output}"
+msgstr ""
+
+#: win_app/sound_menu_win.py
+#, python-brace-format
 msgid "Playing on {name}"
 msgstr ""
 
@@ -5511,11 +5516,6 @@ msgstr ""
 #: win_app/sound_menu_win.py
 #, python-brace-format
 msgid "Play this PC's sound on {name}"
-msgstr ""
-
-#: win_app/sound_menu_win.py
-#, python-brace-format
-msgid "Capturing {output}"
 msgstr ""
 
 #: win_app/widgets.py

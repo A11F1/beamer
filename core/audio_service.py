@@ -19,8 +19,10 @@ from pathlib import Path
 from core import audio_stream, peerlist, protocol
 from core.i18n import N_, tr
 
-# The source tree, for running from it; inside a built app the platform modules are top level.
-ROOT = Path(__file__).resolve().parent.parent
+# The platform modules (audio_capture_win, audio_local_mute, audio_playback_mac) are imported by
+# their top-level names, as they are inside a built app; run from source, the caller puts win_app/
+# or mac_app/ on sys.path. Nothing here reads __file__: py2app would then copy all of core/, tests
+# and all, into the Mac app.
 
 SOURCE_LOOPBACK = "loopback"
 SOURCE_TONE = "tone"
@@ -165,18 +167,6 @@ def tone_source(deliver, stop, frequency=440.0):
             stop.wait(delay)
 
 
-def _win_app():
-    path = str(ROOT / "win_app")
-    if path not in sys.path:
-        sys.path.insert(0, path)
-
-
-def _mac_app():
-    path = str(ROOT / "mac_app")
-    if path not in sys.path:
-        sys.path.insert(0, path)
-
-
 MUTE_WORDS = {
     "muted": N_("Muted {name} while its sound plays on the other machine."),
     "unmuted": N_("Unmuted {name}."),
@@ -212,7 +202,6 @@ class SendSession:
         if source == SOURCE_LOOPBACK:
             if sys.platform != "win32":
                 raise PairingError("Capturing this machine's sound works on Windows only; use the test tone.")
-            _win_app()
             import audio_capture_win
             self._capture = audio_capture_win
             self.output = audio_capture_win.output_name(device)
@@ -223,7 +212,6 @@ class SendSession:
         self._thread = None
 
     def _make_mute(self, output):
-        _win_app()
         import audio_local_mute
         try:
             endpoint = audio_local_mute.WindowsEndpoint(output)
@@ -302,7 +290,6 @@ class ReceiveSession:
         self.buffer = audio_stream.JitterBuffer(target=target, limit=max(target * 4, target + 20))
         self.receiver = audio_stream.AudioReceiver(peers, self.buffer, port=port, on_change=on_change)
         self.port = self.receiver.port
-        _mac_app()
         import audio_playback_mac
         try:
             self.output = audio_playback_mac.open_output(self.buffer, device)
