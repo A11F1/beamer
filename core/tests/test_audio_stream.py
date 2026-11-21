@@ -152,7 +152,7 @@ class PacketTests(unittest.TestCase):
         self.assertEqual(self.buffer.packets, [])
 
     def test_a_replayed_packet_plays_once(self):
-        jitter = audio.JitterBuffer(target=1, limit=4)
+        jitter = audio.JitterBuffer(target=1, limit=4, fade=False)
         self.receiver.buffer = jitter
         packet = self.sender.seal(pcm(7))
         self.receiver.handle(packet, 0.1)
@@ -191,7 +191,7 @@ class PacketTests(unittest.TestCase):
 
 class JitterBufferTests(unittest.TestCase):
     def test_nothing_plays_until_the_target_is_waiting(self):
-        buffer = audio.JitterBuffer(target=3, limit=10)
+        buffer = audio.JitterBuffer(target=3, limit=10, fade=False)
         buffer.push(1, pcm(1))
         buffer.push(2, pcm(2))
         self.assertEqual(buffer.pull(PACKET), bytes(PACKET))
@@ -199,13 +199,13 @@ class JitterBufferTests(unittest.TestCase):
         self.assertEqual(buffer.pull(PACKET * 3), pcm(1) + pcm(2) + pcm(3))
 
     def test_packets_out_of_order_play_in_order(self):
-        buffer = audio.JitterBuffer(target=3, limit=10)
+        buffer = audio.JitterBuffer(target=3, limit=10, fade=False)
         for number in (2, 1, 3):
             buffer.push(number, pcm(number))
         self.assertEqual(buffer.pull(PACKET * 3), pcm(1) + pcm(2) + pcm(3))
 
     def test_a_lost_packet_plays_as_silence_and_a_late_one_is_dropped(self):
-        buffer = audio.JitterBuffer(target=2, limit=10)
+        buffer = audio.JitterBuffer(target=2, limit=10, fade=False)
         buffer.push(1, pcm(1))
         buffer.push(3, pcm(3))
         self.assertEqual(buffer.pull(PACKET * 3), pcm(1) + bytes(PACKET) + pcm(3))
@@ -213,7 +213,7 @@ class JitterBufferTests(unittest.TestCase):
         self.assertEqual(buffer.stats, {"late": 1, "lost": 1, "underruns": 0, "dropped": 0})
 
     def test_running_dry_waits_for_the_target_again(self):
-        buffer = audio.JitterBuffer(target=2, limit=10)
+        buffer = audio.JitterBuffer(target=2, limit=10, fade=False)
         buffer.push(1, pcm(1))
         buffer.push(2, pcm(2))
         buffer.pull(PACKET * 2)
@@ -231,19 +231,65 @@ class JitterBufferTests(unittest.TestCase):
         self.assertEqual(buffer.stats["late"], 1)
 
     def test_pulls_of_any_size_keep_the_stream_whole(self):
-        buffer = audio.JitterBuffer(target=4, limit=10)
+        buffer = audio.JitterBuffer(target=4, limit=10, fade=False)
         for number in range(1, 5):
             buffer.push(number, pcm(number))
         out = b"".join(buffer.pull(size) for size in (100, 1000, 860, 1880))
         self.assertEqual(out, pcm(1) + pcm(2) + pcm(3) + pcm(4))
 
     def test_a_sender_running_fast_is_trimmed_back_to_the_target(self):
-        buffer = audio.JitterBuffer(target=2, limit=5)
+        buffer = audio.JitterBuffer(target=2, limit=5, fade=False)
         for number in range(1, 7):
             buffer.push(number, pcm(number))
         self.assertEqual(buffer.depth, 2)
         self.assertEqual(buffer.stats["dropped"], 4)
         self.assertEqual(buffer.pull(PACKET * 2), pcm(5) + pcm(6))
+
+
+class JitterBufferFadeTests(unittest.TestCase):
+    """Where the stream breaks, the sound fades rather than jumping, which would click."""
+
+    LOUD = struct.pack("<h", 10000) * (PACKET // 2)
+
+    def samples(self, data):
+        return struct.unpack("<%dh" % (len(data) // 2), data)
+
+    def test_the_first_packet_fades_in_and_the_next_plays_whole(self):
+        buffer = audio.JitterBuffer(target=2, limit=10)
+        buffer.push(1, self.LOUD)
+        buffer.push(2, self.LOUD)
+        first = self.samples(buffer.pull(PACKET))
+        self.assertLess(abs(first[0]), 100)
+        self.assertEqual(first[-1], 10000)
+        self.assertEqual(buffer.pull(PACKET), self.LOUD)
+
+    def test_running_dry_fades_out_then_fades_back_in(self):
+        buffer = audio.JitterBuffer(target=1, limit=10)
+        buffer.push(1, self.LOUD)
+        buffer.pull(PACKET)
+        buffer.push(2, self.LOUD)
+        self.assertEqual(buffer.pull(PACKET), self.LOUD)
+        tail = self.samples(buffer.pull(PACKET))
+        self.assertGreater(tail[0], 9900)
+        self.assertEqual(tail[-1], 0)
+        self.assertEqual(buffer.stats["underruns"], 1)
+        self.assertEqual(buffer.pull(PACKET), bytes(PACKET))
+        buffer.push(3, self.LOUD)
+        back = self.samples(buffer.pull(PACKET))
+        self.assertLess(abs(back[0]), 100)
+        self.assertEqual(back[-1], 10000)
+
+    def test_a_lost_packet_fades_out_and_the_next_fades_in(self):
+        buffer = audio.JitterBuffer(target=3, limit=10)
+        for number in (1, 2, 4):
+            buffer.push(number, self.LOUD)
+        buffer.pull(PACKET * 2)
+        gap = self.samples(buffer.pull(PACKET))
+        self.assertGreater(gap[0], 9900)
+        self.assertEqual(gap[-1], 0)
+        after = self.samples(buffer.pull(PACKET))
+        self.assertLess(abs(after[0]), 100)
+        self.assertEqual(buffer.stats["lost"], 1)
 
 
 class ChunkerTests(unittest.TestCase):
@@ -259,7 +305,7 @@ class LoopbackTests(unittest.TestCase):
 
     def test_a_tone_crosses_udp_and_plays_in_order(self):
         shared = token()
-        buffer = audio.JitterBuffer(target=4, limit=200)
+        buffer = audio.JitterBuffer(target=4, limit=200, fade=False)
         receiver = audio.AudioReceiver({shared: "PC"}, buffer, port=0, bind="127.0.0.1").start()
         streaming = threading.Event()
         sender = audio.AudioSender(shared, "127.0.0.1", receiver.port,

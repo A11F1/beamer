@@ -34,6 +34,7 @@ about 1.6 Mbit/s with headers, small beside a LAN and under a 1500-byte MTU, so 
 into IP fragments.
 """
 
+import array
 import hashlib
 import hmac
 import logging
@@ -322,12 +323,17 @@ class JitterBuffer:
     Playback starts once `target` packets are waiting, and starts again from there after the buffer
     runs dry. A packet missing when its turn comes plays as silence, and one arriving after that is
     dropped as late. Past `limit` packets waiting (the sender's clock running fast against the
-    speakers'), the oldest are dropped back to `target`."""
+    speakers'), the oldest are dropped back to `target`.
 
-    def __init__(self, target=8, limit=40):
+    With `fade` (the default), the sound never jumps: a hard cut from a waveform to silence, or
+    from silence back into it, is heard as a click. So where the stream breaks (a lost packet, or
+    running dry) the last packet played is played again fading out, and the first packet after a
+    break fades in."""
+
+    def __init__(self, target=8, limit=40, fade=True):
         if not 1 <= target < limit:
             raise ValueError("need 1 <= target < limit")
-        self.target, self.limit = target, limit
+        self.target, self.limit, self.fade = target, limit, fade
         self._lock = threading.Lock()
         self.stats = {"late": 0, "lost": 0, "underruns": 0, "dropped": 0}
         self.reset()
@@ -338,6 +344,10 @@ class JitterBuffer:
             self._next = None
             self._primed = False
             self._carry = b""
+            # The last packet played, to fade out where the stream breaks; and whether the next
+            # packet comes after a break, so fades in.
+            self._last = None
+            self._rise = True
 
     @property
     def depth(self):
@@ -361,6 +371,12 @@ class JitterBuffer:
 
     def pull(self, size):
         out = bytearray()
+
+        def play(pcm):
+            room = size - len(out)
+            out.extend(pcm[:room])
+            self._carry = pcm[room:]
+
         with self._lock:
             if self._carry:
                 out += self._carry[:size]
@@ -374,18 +390,35 @@ class JitterBuffer:
                 if not self._packets:
                     self._primed = False
                     self.stats["underruns"] += 1
+                    if self.fade and self._last is not None:
+                        play(_ramp(self._last, rising=False))
+                    self._last, self._rise = None, True
                     break
                 pcm = self._packets.pop(self._next, None)
+                self._next += 1
                 if pcm is None:
                     self.stats["lost"] += 1
-                    pcm = bytes(PACKET_BYTES)
-                self._next += 1
-                room = size - len(out)
-                out += pcm[:room]
-                self._carry = pcm[room:]
+                    pcm = _ramp(self._last, rising=False) if self.fade and self._last is not None else bytes(PACKET_BYTES)
+                    self._last, self._rise = None, True
+                else:
+                    if self.fade and self._rise:
+                        pcm = _ramp(pcm, rising=True)
+                    self._last, self._rise = pcm, False
+                play(pcm)
         if len(out) < size:
             out += bytes(size - len(out))
         return bytes(out)
+
+
+def _ramp(pcm, rising):
+    """A packet of 16-bit stereo PCM faded in from silence (`rising`) or out to it."""
+    samples = array.array("h", pcm)
+    frames = len(samples) // CHANNELS
+    for frame in range(frames):
+        gain = (frame + 1) / frames if rising else (frames - 1 - frame) / frames
+        for at in range(frame * CHANNELS, frame * CHANNELS + CHANNELS):
+            samples[at] = int(samples[at] * gain)
+    return samples.tobytes()
 
 
 class Chunker:

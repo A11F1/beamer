@@ -32,8 +32,11 @@ def open_output(buffer, device=None):
             samplerate=audio_stream.SAMPLE_RATE,
             channels=audio_stream.CHANNELS,
             dtype="int16",
-            blocksize=audio_stream.PACKET_FRAMES,
-            latency="low",
+            # 10 ms a call, with 30 ms of room in the device: the callback is Python, sharing the
+            # GIL with the network thread and the menu bar, and a callback that misses its turn
+            # clicks without ever showing in the buffer's counts.
+            blocksize=2 * audio_stream.PACKET_FRAMES,
+            latency=0.03,
             device=device,
             callback=callback,
         )
